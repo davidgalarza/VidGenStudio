@@ -65,7 +65,7 @@ async function capture(page: Page, name: string) {
   ).toBe(true);
   await page.setViewportSize({ width: 1440, height: 1000 });
 }
-async function mock(page: Page, monologue = false) {
+async function mock(page: Page, monologue = false, headingRanges = false) {
   const calls = {
     video: 0,
     image: 0,
@@ -174,7 +174,8 @@ async function mock(page: Page, monologue = false) {
                 turns: units.map((u, i) => ({
                   start: u.id,
                   end: u.id,
-                  speaker: monologue || i === 0 ? "Ana" : "Luis",
+                  speaker:
+                    monologue || i < (headingRanges ? 2 : 1) ? "Ana" : "Luis",
                   direction: i === 0 ? "Con curiosidad" : "Con una sonrisa",
                   action:
                     i === 0
@@ -429,6 +430,53 @@ test("free dialogue becomes editable shared scenes, reusable sets and individual
   ]);
   expect(calls.video).toBe(2);
   expect(errors).toEqual([]);
+});
+
+test("separate speaker headings plan and produce without a retry or empty takes", async ({
+  page,
+}) => {
+  const calls = await mock(page, false, true);
+  await init(page);
+  await page.getByLabel("Preferencia de narración").selectOption("spoken");
+  const script = "**Ana:**\nHola.\nLuis:\n¿Vamos?";
+  await page.getByLabel("Guion completo", { exact: true }).fill(script);
+  await page.getByLabel("Crear también las referencias visuales").uncheck();
+  await page
+    .getByRole("button", { name: "Crear propuesta", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Texto de intervención 1 de la escena 1"),
+  ).toHaveValue("Hola.");
+  await expect(
+    page.getByLabel("Texto de intervención 2 de la escena 1"),
+  ).toHaveValue("¿Vamos?");
+  await expect(page.locator(".story-planned-scene")).toHaveCount(1);
+  const plan = (await stored(page)).projects[0].story!;
+  expect(plan.script).toBe(script);
+  expect(plan.blocks[0].text).toBe(script);
+  expect(plan.blocks[0].dialogue).toHaveLength(2);
+  await page.reload();
+  await expect(
+    page.getByLabel("Texto de intervención 2 de la escena 1"),
+  ).toHaveValue("¿Vamos?");
+  await page
+    .getByRole("button", { name: "Producir historia", exact: true })
+    .first()
+    .click();
+  await expect(page.locator(".story-status").first()).toHaveText(
+    "Vídeo listo",
+    { timeout: 20000 },
+  );
+  const produced = (await stored(page)).scenes;
+  expect(produced).toHaveLength(1);
+  expect(produced[0].story?.dialogue?.map((t) => [t.speaker, t.text])).toEqual([
+    ["Ana", "Hola."],
+    ["Luis", "¿Vamos?"],
+  ]);
+  expect(calls.plan).toBe(1);
+  expect(calls.video).toBe(1);
+  expect(calls.image).toBe(0);
+  expect(calls.speech).toBe(0);
 });
 
 test("a pasted monologue needs no character setup and style selection is keyboard accessible", async ({

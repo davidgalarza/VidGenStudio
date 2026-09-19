@@ -243,6 +243,177 @@ function proposal(
   };
 }
 describe("AI plans metadata while source owns every spoken word", () => {
+  it.each([
+    ["Ana:", "Luis:"],
+    ["**Ana:**", "**Luis:**"],
+    ["Ana", "Luis"],
+    ["— Ana —", "Luis -"],
+  ])("joins separate heading ranges with speech: %s / %s", (ana, luis) => {
+    const source = newStoryProposal(`${ana}\nHola.\n${luis}\n¿Vamos?`, {
+      mode: "spoken",
+    });
+    const input = proposal(source);
+    input.scenes[0].turns = source.planning!.units.map((_, i) => ({
+      start: i,
+      end: i,
+      speaker: i < 2 ? "Ana" : "Luis",
+      direction: "Natural",
+      action: i < 2 ? "Saluda" : "Asiente",
+    }));
+    const result = applyProposalBatch(source, input, 4);
+    expect(result.blocks).toHaveLength(1);
+    expect(result.blocks[0].text).toBe(source.script);
+    expect(result.blocks[0].dialogueSource).toBe(source.script);
+    expect(
+      result.blocks[0].dialogue?.map((t) => [t.speaker, t.text, t.action]),
+    ).toEqual([
+      ["Ana", "Hola.", "Saluda"],
+      ["Luis", "¿Vamos?", "Asiente"],
+    ]);
+    expect(storyCastIssues(result)).toEqual([]);
+    expect(planDialogueShots(result, result.blocks[0])).toHaveLength(1);
+  });
+  it.each([true, false])(
+    "joins heading-only scenes without losing source text (turn ranges: %s)",
+    (structured) => {
+      const source = newStoryProposal("Ana:\nHola.\nLuis:\n¿Vamos?", {
+        mode: "spoken",
+      });
+      const input = proposal(source);
+      const scene = input.scenes[0];
+      input.scenes = source.planning!.units.map((_, i) => ({
+        ...scene,
+        start: i,
+        end: i,
+        title: `Parte ${i}`,
+        speaker: i < 2 ? "Ana" : "Luis",
+        turns: structured
+          ? [
+              {
+                start: i,
+                end: i,
+                speaker: i < 2 ? "Ana" : "Luis",
+                direction: "Natural",
+              },
+            ]
+          : undefined,
+      }));
+      const result = applyProposalBatch(source, input, 4);
+      expect(result.blocks).toHaveLength(2);
+      expect(result.blocks.map((b) => b.title)).toEqual(["Parte 1", "Parte 3"]);
+      expect(result.blocks.map((b) => b.text).join("")).toBe(source.script);
+      expect(result.blocks.every((b) => b.dialogueSource === b.text)).toBe(
+        true,
+      );
+      expect(
+        result.blocks
+          .flatMap((b) => b.dialogue!)
+          .map((t) => [t.speaker, t.text]),
+      ).toEqual([
+        ["Ana", "Hola."],
+        ["Luis", "¿Vamos?"],
+      ]);
+      expect(result.blocks.map((b) => parseDialogue(result, b))).toEqual(
+        result.blocks.map((b) =>
+          b.dialogue!.map(({ speaker, text }) => ({
+            id: `${b.id}-turn-0`,
+            speaker,
+            text,
+          })),
+        ),
+      );
+    },
+  );
+  it("keeps a trailing heading's speaker when Gemini attaches it to the previous turn", () => {
+    const source = newStoryProposal("Ana: Hola.\nLuis:\n¿Vamos?", {
+      mode: "spoken",
+    });
+    const input = proposal(source);
+    input.scenes[0].turns = [
+      { start: 0, end: 1, speaker: "Ana", direction: "Natural" },
+      { start: 2, end: 2, speaker: "Luis", direction: "Natural" },
+    ];
+    const result = applyProposalBatch(source, input, 3);
+    expect(result.blocks[0].dialogue?.map((t) => [t.speaker, t.text])).toEqual([
+      ["Ana", "Hola."],
+      ["Luis", "¿Vamos?"],
+    ]);
+  });
+  it.each([true, false])(
+    "carries an isolated heading into the next batch (own scene: %s)",
+    (ownScene) => {
+      const source = newStoryProposal("Ana: Hola.\nLuis:\n¿Vamos?", {
+        mode: "spoken",
+      });
+      const input = proposal(source);
+      const scene = input.scenes[0];
+      input.scenes = ownScene
+        ? [
+            {
+              ...scene,
+              start: 0,
+              end: 0,
+              turns: [
+                { start: 0, end: 0, speaker: "Ana", direction: "Natural" },
+              ],
+            },
+            {
+              ...scene,
+              start: 1,
+              end: 1,
+              turns: [
+                { start: 1, end: 1, speaker: "Luis", direction: "Natural" },
+              ],
+            },
+          ]
+        : [
+            {
+              ...scene,
+              end: 1,
+              turns: [
+                { start: 0, end: 1, speaker: "Ana", direction: "Natural" },
+              ],
+            },
+          ];
+      const first = applyProposalBatch(source, input, 2);
+      expect(first.blocks).toHaveLength(1);
+      expect(first.blocks[0].text).toBe("Ana: Hola.\nLuis:\n");
+      expect(first.planning!.cursor).toBe(2);
+      expect(first.blocks[0].dialogue?.map((t) => t.text)).toEqual(["Hola."]);
+      const next = proposal(first);
+      next.scenes = [
+        {
+          ...scene,
+          start: 2,
+          end: 2,
+          speaker: "Luis",
+          turns: [{ start: 2, end: 2, speaker: "Luis", direction: "Natural" }],
+        },
+      ];
+      const result = applyProposalBatch(first, next, 1);
+      expect(
+        result.blocks
+          .flatMap((b) => b.dialogue!)
+          .map((t) => [t.speaker, t.text]),
+      ).toEqual([
+        ["Ana", "Hola."],
+        ["Luis", "¿Vamos?"],
+      ]);
+      expect(result.blocks.map((b) => b.text).join("")).toBe(source.script);
+      next.scenes[0].turns![0].speaker = "Ana";
+      expect(() => applyProposalBatch(first, next, 1)).toThrow(
+        "mezcla dos personajes",
+      );
+    },
+  );
+  it("still rejects a source containing no spoken words", () => {
+    const source = newStoryProposal("Ana:\nLuis:", { mode: "spoken" });
+    expect(() => applyProposalBatch(source, proposal(source), 2)).toThrow(
+      "Añade debajo las palabras",
+    );
+    expect(source.blocks).toEqual([]);
+    expect(source.planning!.cursor).toBe(0);
+  });
   it("creates one editable narrative scene containing both characters, set and performance", () => {
     const story = newStoryProposal(config.script, { mode: "spoken" });
     const result = applyProposalBatch(story, proposal(story), 2);

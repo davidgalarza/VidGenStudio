@@ -25,6 +25,13 @@ export function parseDialogue(
   config: StoryConfig,
   block: Pick<StoryBlock, "id" | "text" | "speaker">,
 ): DialogueTurn[] {
+  return parseDialogueSource(config, block).turns;
+}
+/** Keep the final speaker even when the source ends with a heading, not speech. */
+export function parseDialogueSource(
+  config: StoryConfig,
+  block: Pick<StoryBlock, "id" | "text" | "speaker">,
+): { turns: DialogueTurn[]; speaker: string } {
   let speaker =
     findStoryCharacter(config.characters, block.speaker)?.name ||
     (config.characters.length === 1
@@ -56,7 +63,7 @@ export function parseDialogue(
         text: text.trim(),
       });
   }
-  return turns;
+  return { turns, speaker };
 }
 export function blockDialogue(
   config: StoryConfig,

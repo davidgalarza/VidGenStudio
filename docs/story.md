@@ -39,6 +39,8 @@ Ana: Te sigo.
 
 No hace falta añadir acciones, cámaras ni lugares al guion. Gemini propone esas indicaciones por separado. En **Voz en off**, todo el texto se trata como narración literal: los nombres seguidos de dos puntos también forman parte de lo que leerá la voz.
 
+También puedes poner el nombre en su propia línea, por ejemplo `Ana:` y sus palabras debajo. Si Gemini separa esa etiqueta en una intervención o escena, la aplicación la vincula automáticamente al diálogo y no crea tomas vacías. El hablante se mantiene hasta la siguiente etiqueta, incluso entre lotes; el guion original se conserva.
+
 La voz generada dentro del vídeo no ofrece un identificador de voz fijo ni garantiza repetir exactamente cada palabra. Las descripciones y referencias visuales no clonan una voz; esta integración no envía referencias de audio. Revisa el diálogo, la pronunciación y la continuidad. Para controlar mejor la voz entre tomas, usa Gemini TTS en voz en off. Tampoco se realiza una transcripción automática para verificar el texto pronunciado por TTS.
 
 ## Escenas, conversaciones y tomas

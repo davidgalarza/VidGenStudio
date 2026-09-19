@@ -9,12 +9,13 @@ import type {
   StoryMode,
   StoryStyle,
   StoryReference,
+  StoryBlock,
 } from "../types";
 import { getDefaults } from "./settings";
 import { splitText, storyStyles } from "./story";
 import { geminiVoices, validVoice } from "./geminiSpeech";
 import { storyJSON } from "./google";
-import { parseDialogue } from "./storyDialogue";
+import { parseDialogueSource } from "./storyDialogue";
 
 export function newStoryProposal(
   script: string,
@@ -193,10 +194,11 @@ export function applyProposalBatch(
   ];
   const references = [...(story.references || []), ...result.references];
   const mode = plan.mode || (first ? result.mode : story.mode);
-  let previousSpeaker =
-    story.blocks.at(-1)?.dialogue?.at(-1)?.speaker ||
-    story.blocks.at(-1)?.speaker;
-  const blocks = result.scenes.map((scene) => {
+  const previousBlock = story.blocks.at(-1);
+  let previousSpeaker = previousBlock
+    ? parseDialogueSource({ ...story, characters }, previousBlock).speaker
+    : undefined;
+  const blocks = result.scenes.map((scene): StoryBlock => {
     if (
       !scene ||
       scene.start !== cursor ||
@@ -272,7 +274,7 @@ export function applyProposalBatch(
       );
     let at = scene.start;
     const dialogue = scene.turns?.length
-      ? scene.turns.map((turn, index) => {
+      ? scene.turns.flatMap((turn, index) => {
           const character = findStoryCharacter(characters, turn.speaker);
           if (
             !character ||
@@ -288,7 +290,7 @@ export function applyProposalBatch(
             );
           const source = plan.units.slice(turn.start, turn.end + 1).join("");
           at = turn.end + 1;
-          const parsed = parseDialogue(
+          const parsed = parseDialogueSource(
             { ...story, characters },
             {
               id: block.id,
@@ -296,35 +298,77 @@ export function applyProposalBatch(
               speaker: previousSpeaker || character.name,
             },
           );
-          if (parsed.some((t) => t.speaker !== character.name))
+          if (parsed.turns.some((t) => t.speaker !== character.name))
             throw new Error(
               "Una intervención mezcla dos personajes. Reintenta la propuesta.",
             );
-          previousSpeaker = character.name;
-          if (!parsed.length)
-            throw new Error(
-              "Una intervención solo contiene el nombre del personaje. Reintenta el plan para unirla con sus palabras.",
-            );
-          return {
-            id: `${block.id}-turn-${index}`,
-            speaker: character.name,
-            text: parsed.map((t) => t.text).join("\n"),
-            direction: turn.direction.trim(),
-            action: turn.action?.trim() || undefined,
-          };
+          // Gemini sometimes gives a speaker heading its own range. It sets
+          // the next speaker, but must never become an empty generated take.
+          previousSpeaker = parsed.speaker;
+          if (!parsed.turns.length) return [];
+          return [
+            {
+              id: `${block.id}-turn-${index}`,
+              speaker: character.name,
+              text: parsed.turns.map((t) => t.text).join("\n"),
+              direction: turn.direction.trim(),
+              action: turn.action?.trim() || undefined,
+            },
+          ];
         })
-      : parseDialogue({ ...story, characters }, block);
-    previousSpeaker = dialogue.at(-1)?.speaker || previousSpeaker;
+      : (() => {
+          const parsed = parseDialogueSource(
+            { ...story, characters },
+            { ...block, speaker: previousSpeaker || block.speaker },
+          );
+          previousSpeaker = parsed.speaker;
+          return parsed.turns;
+        })();
     if (scene.turns?.length && at !== scene.end + 1)
       throw new Error(
         "La conversación propuesta no cubre todo el texto de la escena.",
       );
-    return { ...block, dialogue, dialogueSource: text };
+    return {
+      ...block,
+      speaker: dialogue[0]?.speaker || previousSpeaker,
+      dialogue,
+      dialogueSource: text,
+    };
   });
   if (cursor !== plan.cursor + count)
     throw new Error(
       "La propuesta no cubre todo el guion. No se guardaron escenas incompletas.",
     );
+  const joinedBlocks: StoryBlock[] = [...story.blocks];
+  let pendingHeadings = "";
+  for (const block of blocks) {
+    if (mode === "spoken" && !block.dialogue?.length) {
+      pendingHeadings += block.text;
+      continue;
+    }
+    const text = pendingHeadings + block.text;
+    joinedBlocks.push({
+      ...block,
+      text,
+      ...(mode === "spoken" ? { dialogueSource: text } : {}),
+    });
+    pendingHeadings = "";
+  }
+  if (pendingHeadings) {
+    const last = joinedBlocks.at(-1);
+    if (!last)
+      throw new Error(
+        "Este fragmento solo contiene nombres de personajes. Añade debajo las palabras que deben decir.",
+      );
+    // Preserve every source character and a trailing heading for the next
+    // batch, without adding an empty scene or an extra model request.
+    const text = last.text + pendingHeadings;
+    joinedBlocks[joinedBlocks.length - 1] = {
+      ...last,
+      text,
+      dialogueSource: text,
+    };
+  }
   return normalizeStoryCast({
     ...story,
     ...(first
@@ -369,7 +413,7 @@ export function applyProposalBatch(
           locationName: r.locationName?.trim() || undefined,
         })),
     ],
-    blocks: [...story.blocks, ...blocks],
+    blocks: joinedBlocks,
     planning: { ...plan, cursor },
   });
 }
@@ -388,8 +432,8 @@ export async function proposeNextBatch(key: string, story: Story) {
           title: story.blocks.at(-1)?.title,
           location: story.blocks.at(-1)?.locationName,
           lastSpeaker:
-            story.blocks.at(-1)?.dialogue?.at(-1)?.speaker ||
-            story.blocks.at(-1)?.speaker,
+            story.blocks.at(-1) &&
+            parseDialogueSource(story, story.blocks.at(-1)!).speaker,
           lastWords: story.blocks.at(-1)?.text.slice(-300),
         },
       })
@@ -399,6 +443,7 @@ export async function proposeNextBatch(key: string, story: Story) {
     "Infer a useful visual style, narrative mode, coherent art direction, recurring characters only if needed, and a fitting narrator voice. For explanatory scripts prefer concrete demonstrations and progressive diagrams instead of talking characters or generic footage. For labelled dialogue identify all speakers and consistent appearance/voice descriptions. Every scene speaker must use the exact name of a character in the cast, including narrators who appear speaking in the video. Never use a role, nickname or generic narrator label in place of that name. Do not add fictional people to an infographic unless helpful. References should be reusable model sheets for recurring characters, locations, objects or the visual style; propose at most 4 normally, never one per shot. Reference prompts must be complete Nano Banana image descriptions with a single clear view, no labels or lettering. characterName links a CHARACTER reference to an exact character name, otherwise use an empty string. Each scene's visual specifies subject, action, framing, and educational purpose when appropriate. Each scene referenceNames selects up to 3 exact names from existing or newly proposed references appropriate to its subject. Do not attach unrelated characters or objects.",
     "For each recurring physical location, create ONE reusable establishing image reference (type PRODUCT, locationName set, characterName empty). Its name, architecture, light, furniture and spatial positions should be specific and stable. The image depicts the empty set, without people or labels. Set scene.locationName to that exact locationName, or empty if the visuals have no physical set. Include that reference in referenceNames when appropriate. Reuse existing locations across batches, never create variants merely for a camera change. Style references use empty locationName. Select only the scene's participants for character references, and reserve room for the set within the three-reference limit. For shared dialogue speaker may be the first turn's speaker; turns are authoritative. When the user explicitly chooses spoken mode, never change it to voiceover, even for an unlabelled monologue.",
     "Each spoken turn has action: concise visual blocking while that turn is spoken, including the speaker's gestures and listeners' silent reactions. Coordinate sequential actions without replaying earlier beats. These actions are inferred direction, never additional speech. Empty for voiceover turns.",
+    "A speaker name on its own line (for example Ana: followed by a newline) is a heading, not an utterance or a scene. Include its unit with the following spoken words in the same turn and scene. Never create a separate turn or scene for a name alone. A heading changes the speaker of all following unlabelled units, including across batches, until another heading appears.",
     `User preferences (obey when specified): ${JSON.stringify({ mode: plan.mode, style: plan.style, direction: story.direction })}`,
     `Existing direction (keep unchanged; include newly discovered characters or reusable references when needed): ${context}`,
     `Available styles: ${storyStyles.map((s) => `${s.id}: ${s.prompt}`).join("\n")}`,

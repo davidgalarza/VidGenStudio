@@ -44,6 +44,7 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 
 ### Corregido
 
+- Los nombres de personaje en una línea separada se vinculan a sus palabras cuando Gemini los divide en intervenciones o escenas vacías. Se conserva el guion y el hablante al cruzar escenas y lotes, sin pedir otro plan por ese motivo.
 - Validación de hablantes y rangos del guion, continuidad del personaje entre lotes y foco en la intervención concreta que necesita texto. Las etiquetas con negritas o guiones se pueden renombrar sin alterar las palabras pronunciadas.
 - Reconocimiento de nombres de personaje en Historia y selectores sin asignaciones engañosas. Los errores identifican escenas concretas y permiten corregir nombres en grupo.
 
