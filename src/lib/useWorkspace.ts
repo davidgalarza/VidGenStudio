@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as db from "./storage";
+import { prepareStory as prepareStoryContent } from "./storyService";
 import { getApiKey } from "./settings";
 import {
   buildOmniPayload,
@@ -42,7 +43,15 @@ export function useWorkspace() {
     trash: [],
     assets: [],
     usage: [],
+    narrations: [],
   });
+  const [storyJob, setStoryJob] = useState<{
+    projectId: string;
+    text: string;
+    stopping?: boolean;
+  } | null>(null);
+  const storyRunning = useRef(false);
+  const storyStop = useRef(false);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<{
     text: string;
@@ -77,11 +86,28 @@ export function useWorkspace() {
           current.scenes.find((s) => s.id === scene.id),
         ),
       ),
+      narrations: value.narrations.map((n) => ({
+        ...n,
+        blob: current.narrations.find((p) => p.id === n.id)?.blob || n.blob,
+      })),
     }));
     return value;
   }, []);
   useEffect(() => {
     let mounted = true;
+    const blocked = () =>
+      notify(
+        "Cierra las otras pestañas de Vidgen Studio para actualizar el almacenamiento. Tus proyectos se conservarán.",
+        true,
+      );
+    const reload = () =>
+      notify(
+        "El almacenamiento se actualizó desde otra pestaña. Recarga esta página para continuar.",
+        true,
+      );
+    window.addEventListener("vidgen-storage-blocked", blocked);
+    window.addEventListener("vidgen-storage-reload", reload);
+    if (db.storageIsBlocked()) blocked();
     void db
       .readWorkspace()
       .then((value) => {
@@ -113,6 +139,8 @@ export function useWorkspace() {
       });
     return () => {
       mounted = false;
+      window.removeEventListener("vidgen-storage-blocked", blocked);
+      window.removeEventListener("vidgen-storage-reload", reload);
     };
   }, [notify]);
   useEffect(() => {
@@ -121,14 +149,14 @@ export function useWorkspace() {
     return () => clearTimeout(timer);
   }, [notice]);
   useEffect(() => {
-    if (!job) return;
+    if (!job && !storyJob) return;
     const unload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", unload);
     return () => window.removeEventListener("beforeunload", unload);
-  }, [job]);
+  }, [job, storyJob]);
   const action = useCallback(
     async (fn: () => Promise<unknown>, message?: string) => {
       try {
@@ -158,6 +186,7 @@ export function useWorkspace() {
     resume = false,
     count = 1,
     retry = false,
+    replaceStory = false,
   ): Promise<boolean> {
     const enqueue = async () => {
       try {
@@ -173,6 +202,16 @@ export function useWorkspace() {
         for (const id of new Set(ids)) {
           const scene = current.scenes.find((s) => s.id === id);
           if (!scene) throw new Error("El clip ya no está disponible.");
+          if (
+            replaceStory &&
+            (!scene.story?.planned ||
+              count !== 1 ||
+              scene.generation_queue?.length ||
+              activeRequest.current?.sceneId === id)
+          )
+            throw new Error(
+              "Esta escena no está preparada o ya se está generando.",
+            );
           if (
             resume &&
             ((controller.current && activeRequest.current?.sceneId === id) ||
@@ -261,7 +300,7 @@ export function useWorkspace() {
         }
         if (!items.length) return false;
         let outputs = items;
-        if (resume || retry) await db.enqueueGenerations(items);
+        if (resume || retry || replaceStory) await db.enqueueGenerations(items);
         else outputs = await db.enqueueClipOutputs(items);
         queueRef.current = resume
           ? [...outputs, ...queueRef.current]
@@ -449,9 +488,65 @@ export function useWorkspace() {
     admission.current = result;
     return result;
   }
+  async function prepareStory(projectId: string) {
+    if (storyRunning.current) return;
+    storyRunning.current = true;
+    storyStop.current = false;
+    setStoryJob({ projectId, text: "Preparando historia…" });
+    const process = async () => {
+      await prepareStoryContent(
+        projectId,
+        async (text) => {
+          setStoryJob({ projectId, text, stopping: storyStop.current });
+          await refresh();
+        },
+        () => storyStop.current,
+      );
+    };
+    try {
+      if (navigator.locks)
+        await navigator.locks.request(
+          `vidgen-story-${projectId}`,
+          { ifAvailable: true },
+          async (lock) => {
+            if (!lock)
+              throw new Error(
+                "Esta historia se está preparando en otra pestaña.",
+              );
+            await process();
+          },
+        );
+      else await process();
+      notify(
+        storyStop.current
+          ? "Preparación pausada. Lo que ya se creó está guardado."
+          : "Historia preparada. Revisa las escenas y genera los vídeos.",
+      );
+    } catch (e) {
+      const message = errorMessage(e);
+      await db.setStoryError(projectId, message).catch(() => {});
+      notify(message, true);
+    } finally {
+      try {
+        await refresh();
+      } finally {
+        storyRunning.current = false;
+        setStoryJob(null);
+      }
+    }
+  }
+  function pauseStory() {
+    storyStop.current = true;
+    setStoryJob((job) => (job ? { ...job, stopping: true } : job));
+  }
   return {
     ...data,
     loading,
+    storyJob,
+    prepareStory,
+    pauseStory,
+    runStory: (ids: string[]) =>
+      run(ids, "generate", undefined, false, 1, false, true),
     notice,
     setNotice,
     job,

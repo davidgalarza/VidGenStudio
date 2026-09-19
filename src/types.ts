@@ -20,6 +20,7 @@ export interface SequenceItem {
   id: string;
   scene_id: string;
   version_id?: string;
+  follow_active?: boolean;
   in: number;
   out?: number;
   volume: number;
@@ -32,6 +33,63 @@ export interface Project {
   sequence_ids?: string[];
   sequence_items?: SequenceItem[];
   sequence_aspect?: AspectRatio;
+  story?: Story;
+}
+export type StoryMode = "spoken" | "voiceover";
+export type StoryStyle =
+  "realistic" | "cinematic" | "cartoon" | "3d" | "explainer" | "infographic";
+export interface StoryCharacter {
+  name: string;
+  description: string;
+  voice: string;
+  referenceId?: string;
+}
+export interface StoryConfig {
+  script: string;
+  mode: StoryMode;
+  style: StoryStyle;
+  direction: string;
+  characters: StoryCharacter[];
+  voiceId: string;
+  voiceName: string;
+  settings: VideoSettings;
+}
+export interface StoryBlock {
+  id: string;
+  text: string;
+  speaker?: string;
+  sceneIds?: string[];
+}
+export interface Story extends StoryConfig {
+  id: string;
+  blocks: StoryBlock[];
+  error?: string;
+}
+export interface SpeechAlignment {
+  characters: string[];
+  character_start_times_seconds: number[];
+  character_end_times_seconds: number[];
+}
+export interface Narration {
+  id: string;
+  project_id: string;
+  story_id: string;
+  block_id: string;
+  blob: Blob;
+  alignment?: SpeechAlignment;
+  duration?: number;
+  requestId?: string;
+}
+export interface StoryScene {
+  storyId: string;
+  blockId: string;
+  text: string;
+  speaker?: string;
+  visual: string;
+  planned: boolean;
+  audioId?: string;
+  audioStart?: number;
+  audioEnd?: number;
 }
 export function sequenceScenes(project: Project, scenes: Scene[]): Scene[] {
   const own = scenes.filter((s) => s.project_id === project.id);
@@ -89,6 +147,7 @@ export interface Scene {
   project_id: string;
   order: number;
   title?: string;
+  story?: StoryScene;
   review?: "favorite" | "discarded";
   generation_batch?: string;
   prompt: string;

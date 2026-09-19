@@ -338,7 +338,7 @@ test("exports mixed silent/audio clips in a single playable MP4 using the local 
     async ({ clip, silent }) => {
       // Seed two legacy-format records to cover migration and the actual export UI.
       const db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const request = indexedDB.open("vid-gen-studio", 1);
+        const request = indexedDB.open("vid-gen-studio");
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       });
@@ -424,7 +424,7 @@ test("clip library downloads originals in ZIP and keeps an optional sequence aft
   await page.evaluate(
     async ({ clip, silent }) => {
       const database = await new Promise<IDBDatabase>((resolve) => {
-        const req = indexedDB.open("vid-gen-studio", 1);
+        const req = indexedDB.open("vid-gen-studio");
         req.onsuccess = () => resolve(req.result);
       });
       await new Promise<void>((resolve) => {
@@ -1035,7 +1035,7 @@ test("existing grouped results can be separated into independently downloadable 
   await createProject(page);
   await page.evaluate(async (data) => {
     const database = await new Promise<IDBDatabase>((resolve) => {
-      const req = indexedDB.open("vid-gen-studio", 1);
+      const req = indexedDB.open("vid-gen-studio");
       req.onsuccess = () => resolve(req.result);
     });
     await new Promise<void>((resolve) => {
@@ -1093,7 +1093,7 @@ async function seedReviewClips(page: Page) {
   await createProject(page, 2);
   await page.evaluate(async (data) => {
     const database = await new Promise<IDBDatabase>((resolve) => {
-      const request = indexedDB.open("vid-gen-studio", 1);
+      const request = indexedDB.open("vid-gen-studio");
       request.onsuccess = () => resolve(request.result);
     });
     await new Promise<void>((resolve) => {
@@ -1663,7 +1663,7 @@ async function replaceReviewVideo(
   await page.evaluate(
     async ({ data, title }) => {
       const db = await new Promise<IDBDatabase>((resolve) => {
-        const req = indexedDB.open("vid-gen-studio", 1);
+        const req = indexedDB.open("vid-gen-studio");
         req.onsuccess = () => resolve(req.result);
       });
       await new Promise<void>((resolve) => {

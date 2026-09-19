@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ArrowUpRight,
+  BookOpen,
   Check,
   ChevronRight,
   Clapperboard,
@@ -164,7 +165,7 @@ export function StudioApp() {
             Ajustes
           </button>
           <a
-            href="https://github.com/davidgalarza/Video_Orchestrator"
+            href="https://github.com/davidgalarza/VidGenStudio"
             target="_blank"
             rel="noreferrer"
           >
@@ -201,7 +202,11 @@ export function StudioApp() {
             {project && (
               <IconButton
                 label="Eliminar proyecto"
-                disabled={!!w.job || w.queue.length > 0}
+                disabled={
+                  !!w.job ||
+                  w.queue.length > 0 ||
+                  w.storyJob?.projectId === project.id
+                }
                 onClick={() => {
                   if (
                     window.confirm(
@@ -292,6 +297,19 @@ export function StudioApp() {
             </>
           )}
         </main>
+        {w.storyJob && (
+          <div className="story-background-job" role="status">
+            <BookOpen size={16} />
+            <span>{w.storyJob.text}</span>
+            <button
+              className="text-button"
+              disabled={w.storyJob.stopping}
+              onClick={w.pauseStory}
+            >
+              {w.storyJob.stopping ? "Pausando…" : "Pausar preparación"}
+            </button>
+          </div>
+        )}
         {(w.job || w.queue.length > 0) && (
           <div className="job-bar" role="status">
             <span className="activity-dot" />

@@ -6,11 +6,12 @@ Esta guía describe lo que **implementa el repositorio**, no una garantía de di
 
 ## Modelos y límites implementados
 
-| Uso                   | Identificador enviado      | Opciones admitidas por la aplicación                                    |
-| --------------------- | -------------------------- | ----------------------------------------------------------------------- |
-| Vídeo Omni            | `gemini-omni-1.1-flash`    | Generación de 3–10 segundos, enteros; 9:16/16:9; 360p, 720p, 1080p y 4k |
-| Vídeo Veo             | `veo-3.1-generate-preview` | 4, 6 u 8 segundos en 720p; 8 segundos en 1080p; 9:16/16:9               |
-| Referencias generadas | `gemini-3.1-flash-image`   | Solicitud de imagen y texto con proporción de imagen                    |
+| Uso                   | Identificador enviado      | Opciones admitidas por la aplicación                                               |
+| --------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
+| Vídeo Omni            | `gemini-omni-1.1-flash`    | Generación de 3–10 segundos, enteros; 9:16/16:9; 360p, 720p, 1080p y 4k            |
+| Vídeo Veo             | `veo-3.1-generate-preview` | 4, 6 u 8 segundos en 720p; 8 segundos en 1080p; 9:16/16:9                          |
+| Plan de Historia      | `gemini-3.8-flash`         | JSON estructurado con títulos y acciones visuales; el guion se conserva localmente |
+| Referencias generadas | `gemini-3.1-flash-image`   | Solicitud de imagen y texto con proporción de imagen                               |
 
 Las guías de personaje/objeto/estilo y la edición/extensión de vídeo utilizan Omni en esta interfaz. Veo admite fotogramas inicial y final; un final requiere un inicial. Omni también requiere ese orden y la UI limita las guías visuales a tres.
 

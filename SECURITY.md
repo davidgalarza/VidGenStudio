@@ -16,12 +16,12 @@ En el reporte privado incluye pasos mínimos, impacto, entorno y revisión afect
 
 ## Si se expuso una clave
 
-Revócala o rótala en Google y revisa el consumo de esa cuenta. Retirarla de un archivo, commit o comentario no basta para invalidarla. Indica al mantenedor dónde se publicó sin volver a pegarla. El historial y las copias de otros usuarios pueden conservarla.
+Revócala o rótala en Google o ElevenLabs, según el proveedor y revisa el consumo de esa cuenta. Retirarla de un archivo, commit o comentario no basta para invalidarla. Indica al mantenedor dónde se publicó sin volver a pegarla. El historial y las copias de otros usuarios pueden conservarla.
 
 ## Modelo de confianza
 
 La aplicación guarda la clave personal sin cifrado propio en localStorage. El código del mismo origen puede leerla. Aloja solo código que controles y no añadas scripts de terceros que no sean necesarios. El frontend no es un lugar seguro para una clave compartida de servidor.
 
-Los proyectos viven en IndexedDB y no están respaldados remotamente por la aplicación. Al generar, los prompts y referencias se envían a Google; al exportar, el procesamiento es local. Véase [privacidad](docs/privacy.md).
+Los proyectos viven en IndexedDB y no están respaldados remotamente por la aplicación. Al generar, los prompts y referencias se envían a Google y la voz en off de Historia envía su guion a ElevenLabs; al exportar, el procesamiento es local. Véase [privacidad](docs/privacy.md).
 
 El motor distribuido y sus códecs tienen avisos de terceros. Actualizar dependencias requiere revisar compatibilidad, integridad del lockfile y licencias; esta documentación no sustituye una auditoría de seguridad.

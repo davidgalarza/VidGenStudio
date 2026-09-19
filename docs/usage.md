@@ -6,9 +6,13 @@
 
 **Nuevo proyecto** crea un proyecto vacío. No se añade ningún clip automáticamente. Pulsa **Nuevo clip** cuando quieras preparar el primero. Los proyectos y clips se ordenan por modificación reciente de forma predeterminada; puedes cambiar el orden de los clips.
 
-## Dos formas de trabajar
+## Formas de trabajar
 
 El proyecto abre en **Clips del proyecto**. Usa **Nuevo clip** o abre uno existente para generar, revisar versiones y descargarlo en un modal individual. Al cerrarlo, vuelves a la biblioteca y los cambios quedan guardados. Para seguir en un editor local, selecciona clips y pulsa **Descargar seleccionados · ZIP**: se incluye la versión activa de cada vídeo. La resolución **Original** la conserva sin recomprimir. Los borradores se excluyen y los nombres llevan un índice para evitar colisiones. El ZIP admite hasta 4 GB; para más material, descarga por grupos.
+
+## Historias desde un guion
+
+Pulsa **Historia** dentro del proyecto para crear escenas desde un guion completo. Elige personajes hablando o una voz en off de ElevenLabs, prepara el plan, revisa cada parte y genera los vídeos en segundo plano. Las escenas se añaden al montaje; puedes regenerar una imagen sin rehacer la voz y descargar los materiales para tu editor local. Consulta la [guía de Historia](story.md) para voces, estilos, duración y límites.
 
 ## Descargas y calidad
 

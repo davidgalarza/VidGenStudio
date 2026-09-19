@@ -8,6 +8,8 @@ This is an independent fork of [Video Orchestrator by Rajjit Laishram](https://g
 
 ## Features
 
+- **Story mode:** turn a script into editable scenes with character dialogue or ElevenLabs voiceover, visual styles, timed montage and per-scene regeneration. See the [Story guide](docs/story.md).
+
 - Empty projects with user-created clips, search, favorites, trash and comparison.
 - Google video generation using a personal API key, visual references and a persistent queue.
 - Independent outputs for batch requests; derived edit/extension clips preserve their sources.
@@ -21,8 +23,8 @@ This is an independent fork of [Video Orchestrator by Rajjit Laishram](https://g
 Use Node.js 22.12+ and npm:
 
 ```bash
-git clone https://github.com/davidgalarza/Video_Orchestrator.git
-cd Video_Orchestrator
+git clone https://github.com/davidgalarza/VidGenStudio.git
+cd VidGenStudio
 npm ci
 npm run dev
 ```

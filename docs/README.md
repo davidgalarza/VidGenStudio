@@ -4,6 +4,7 @@
 
 ## Para usar la aplicación
 
+- [Modo Historia](story.md): guion, personajes, ElevenLabs, escenas editables y sincronización.
 - [Guía de uso](usage.md): proyectos, referencias, generación, revisión, montaje y descargas.
 - [Instalación y despliegue](deployment.md): local, Vercel y alojamiento estático.
 - [Privacidad y almacenamiento](privacy.md): datos locales, claves, transmisión y recuperación.

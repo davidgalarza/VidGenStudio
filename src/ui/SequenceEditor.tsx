@@ -91,6 +91,8 @@ function PreviewVideo({
   onError: () => void;
 }) {
   const url = useBlobUrl(clip.blob);
+  const audioUrl = useBlobUrl(clip.narration?.blob);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const ref = useRef<HTMLVideoElement>(null);
   const latest = useRef({ time, onTime, onEnd, clip });
   useEffect(() => {
@@ -102,21 +104,33 @@ function PreviewVideo({
     const sync = () => {
       if (!active) {
         video.pause();
+        audioRef.current?.pause();
         return;
       }
       const c = latest.current.clip;
-      video.currentTime = Math.min(
-        c.out,
-        Math.max(c.in, c.in + latest.current.time - c.start),
-      );
+      const sourceTime = Math.max(c.in, c.in + latest.current.time - c.start);
+      video.currentTime = Math.min(c.videoDuration - FRAME, sourceTime);
+      video.muted = !!c.narration;
       video.volume = c.volume;
-      if (playing) void video.play().catch(onError);
+      const audio = audioRef.current;
+      if (audio && c.narration) {
+        audio.currentTime = c.narration.offset + sourceTime;
+        audio.volume = c.volume;
+        if (playing) void audio.play().catch(onError);
+        else audio.pause();
+      }
+      if (playing && sourceTime < c.videoDuration)
+        void video.play().catch(onError);
       else video.pause();
     };
     sync();
     video.addEventListener("loadedmetadata", sync);
+    const audio = audioRef.current;
+    audio?.addEventListener("loadedmetadata", sync);
     return () => {
       video.removeEventListener("loadedmetadata", sync);
+      audio?.removeEventListener("loadedmetadata", sync);
+      audio?.pause();
       video.pause();
     };
   }, [
@@ -127,6 +141,7 @@ function PreviewVideo({
     clip.in,
     clip.out,
     clip.volume,
+    audioUrl,
     onError,
   ]);
   useEffect(() => {
@@ -135,15 +150,27 @@ function PreviewVideo({
     const tick = () => {
       const video = ref.current,
         c = latest.current.clip;
+      const audio = audioRef.current;
       if (video && !video.seeking) {
-        if (video.ended || video.currentTime >= c.out - 0.012) {
+        const clock =
+          c.narration && audio
+            ? audio.currentTime - c.narration.offset
+            : video.currentTime;
+        const ended = c.narration && audio ? audio.ended : video.ended;
+        if (ended || clock >= c.out - 0.012) {
           latest.current.onEnd();
           return;
         }
-        if (!video.paused)
-          latest.current.onTime(
-            c.start + Math.max(0, video.currentTime - c.in),
-          );
+        if (
+          c.narration &&
+          audio &&
+          !audio.paused &&
+          clock < c.videoDuration - FRAME &&
+          Math.abs(video.currentTime - clock) > 0.18
+        )
+          video.currentTime = clock;
+        if (c.narration && audio ? !audio.paused : !video.paused)
+          latest.current.onTime(c.start + Math.max(0, clock - c.in));
       }
       frame = requestAnimationFrame(tick);
     };
@@ -151,18 +178,31 @@ function PreviewVideo({
     return () => cancelAnimationFrame(frame);
   }, [active, playing, seekToken, clip.in, clip.out]);
   return (
-    <video
-      ref={ref}
-      src={url}
-      hidden={!active}
-      playsInline
-      preload="auto"
-      data-testid={active ? "sequence-preview" : "sequence-preload"}
-      onError={active ? onError : undefined}
-      onEnded={() => {
-        if (active && playing) onEnd();
-      }}
-    />
+    <>
+      {audioUrl && (
+        <audio
+          ref={audioRef}
+          src={audioUrl}
+          preload="auto"
+          onError={active ? onError : undefined}
+          data-testid={
+            active ? "sequence-narration" : "sequence-narration-preload"
+          }
+        />
+      )}
+      <video
+        ref={ref}
+        src={url}
+        hidden={!active}
+        playsInline
+        preload="auto"
+        data-testid={active ? "sequence-preview" : "sequence-preload"}
+        onError={active ? onError : undefined}
+        onEnded={() => {
+          if (active && playing && !clip.narration) onEnd();
+        }}
+      />
+    </>
   );
 }
 export function SequenceEditor({
@@ -235,7 +275,12 @@ export function SequenceEditor({
     original: SequenceItem[];
     next: SequenceItem[];
   } | null>(null);
-  const clips = resolveTimeline(draft || edit.items, scenes, durations);
+  const clips = resolveTimeline(
+    draft || edit.items,
+    scenes,
+    durations,
+    w.narrations,
+  );
   const tickStep =
     [1, 2, 5, 10, 15, 30, 60, 120, 300].find((step) => step * zoom >= 64) ||
     300;
@@ -624,6 +669,9 @@ export function SequenceEditor({
                 start: c.in,
                 end: c.out,
                 volume: c.volume,
+                narration: c.narration
+                  ? { blob: c.narration.blob, start: c.narration.offset + c.in }
+                  : undefined,
               })),
               aspect: edit.aspect,
               title: project.name,
@@ -926,6 +974,13 @@ export function SequenceEditor({
               >
                 Restablecer recorte
               </button>
+              {chosen.narration && (
+                <p className="hint">
+                  Voz en off vinculada. Al recortar o mover este fragmento, su
+                  narración lo acompaña. Si la toma es más corta, se mantiene el
+                  último fotograma hasta terminar la voz.
+                </p>
+              )}
               <label className="sequence-volume">
                 <span>
                   <Volume2 size={16} /> Audio{" "}
@@ -1188,7 +1243,11 @@ export function SequenceEditor({
                       </strong>
                       <small>
                         {timecode(c.length)}
-                        {c.volume === 0 ? " · Sin audio" : ""}
+                        {c.volume === 0
+                          ? " · Sin audio"
+                          : c.narration
+                            ? " · Voz en off"
+                            : ""}
                       </small>
                     </span>
                   </button>

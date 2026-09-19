@@ -54,4 +54,10 @@ La papelera permite recuperar clips borrados, pero no proyectos eliminados ni da
 
 ## Informar de un problema
 
-Usa una [incidencia del repositorio](https://github.com/davidgalarza/Video_Orchestrator/issues) con pasos, resultado esperado, navegador, sistema, revisión de Git y un mensaje de error saneado. Si implica credenciales o una vulnerabilidad, consulta [SECURITY.md](../SECURITY.md).
+Usa una [incidencia del repositorio](https://github.com/davidgalarza/VidGenStudio/issues) con pasos, resultado esperado, navegador, sistema, revisión de Git y un mensaje de error saneado. Si implica credenciales o una vulnerabilidad, consulta [SECURITY.md](../SECURITY.md).
+
+## Historia: preparación o voz
+
+**Continuar preparación** reutiliza los bloques de audio y planes ya guardados. Si aparece un error de ElevenLabs, comprueba esa clave, la voz elegida y la cuota de esa cuenta; la clave de Google no sustituye la de ElevenLabs. Un fallo después de enviar una solicitud puede haber consumido saldo y no se reintenta automáticamente.
+
+Si la actualización del almacenamiento pide cerrar otras pestañas, cierra las pestañas antiguas de Vidgen Studio. La migración añade el almacén de narraciones y conserva proyectos, vídeos y referencias. Consulta [Modo Historia](story.md) para sincronización, materiales y limitaciones del diálogo generado.

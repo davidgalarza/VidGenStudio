@@ -535,3 +535,78 @@ export async function generateImage(
     );
   return base64Blob(image.data, image.mimeType);
 }
+
+/** Plan visuals only: script and audio timing remain owned by the local editor. */
+export async function planStoryVisuals(
+  apiKey: string,
+  input: string,
+  ids: string[],
+) {
+  const result = await request<Interaction & { output_text?: string }>(
+    `${BASE}/interactions`,
+    apiKey,
+    {
+      method: "POST",
+      signal: AbortSignal.timeout(120000),
+      body: JSON.stringify({
+        model: "gemini-3.8-flash",
+        input,
+        response_format: {
+          type: "text",
+          mime_type: "application/json",
+          schema: {
+            type: "object",
+            properties: {
+              scenes: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    title: { type: "string" },
+                    visual: { type: "string" },
+                  },
+                  required: ["id", "title", "visual"],
+                  additionalProperties: false,
+                },
+              },
+            },
+            required: ["scenes"],
+            additionalProperties: false,
+          },
+        },
+      }),
+    },
+  );
+  const text =
+    result.output_text ||
+    modelOutput(result)
+      .filter((part) => part.type === "text")
+      .map((part) => part.text || "")
+      .join("");
+  let parsed: { scenes?: { id: string; title: string; visual: string }[] };
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error(
+      "Gemini no devolvió un plan válido. Tu guion y los audios guardados se conservan.",
+    );
+  }
+  const scenes = parsed?.scenes;
+  if (
+    !Array.isArray(scenes) ||
+    scenes.length !== ids.length ||
+    new Set(scenes.map((s) => s.id)).size !== ids.length ||
+    scenes.some(
+      (s) =>
+        !ids.includes(s.id) ||
+        typeof s.title !== "string" ||
+        typeof s.visual !== "string" ||
+        !s.visual.trim(),
+    )
+  )
+    throw new Error(
+      "El plan de Gemini está incompleto. El guion no se ha modificado.",
+    );
+  return scenes;
+}

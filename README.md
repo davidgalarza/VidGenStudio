@@ -10,6 +10,7 @@ Este proyecto es un fork independiente de [Video Orchestrator, de Rajjit Laishra
 
 ## Qué incluye
 
+- **Modo Historia:** pega un guion, elige personajes hablando o voz en off de ElevenLabs y genera escenas editables con distintos estilos. [Cómo funciona](docs/story.md).
 - **Proyectos vacíos:** crea clips cuando los necesites, sin plantillas ni tomas automáticas.
 - **Generación con Google:** integración con Gemini Omni 1.1 Flash y Veo 3.1, referencias visuales y generación de imágenes de referencia.
 - **Cola persistente:** solicita de 1 a 20 clips independientes, sigue preparando otros y recupera operaciones tras recargar.
@@ -24,8 +25,8 @@ Este proyecto es un fork independiente de [Video Orchestrator, de Rajjit Laishra
 Requiere **Node.js 22.12 o posterior** y npm. Un navegador de escritorio Chromium reciente es la referencia de las pruebas automatizadas.
 
 ```bash
-git clone https://github.com/davidgalarza/Video_Orchestrator.git
-cd Video_Orchestrator
+git clone https://github.com/davidgalarza/VidGenStudio.git
+cd VidGenStudio
 npm ci
 npm run dev
 ```
@@ -72,7 +73,7 @@ npm run lint
 npm run build
 ```
 
-Las pruebas de navegador usan respuestas de Google simuladas y vídeos sintéticos; la exportación ejecuta FFmpeg real. Para ejecutarlas, sigue [desarrollo y pruebas](docs/development.md). No requieren claves reales.
+Las pruebas de navegador usan respuestas de Google y ElevenLabs simuladas y vídeos sintéticos; la exportación ejecuta FFmpeg real. Para ejecutarlas, sigue [desarrollo y pruebas](docs/development.md). No requieren claves reales.
 
 ## Licencia y créditos
 

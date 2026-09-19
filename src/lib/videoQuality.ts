@@ -37,6 +37,7 @@ export interface VideoSegment {
   start: number;
   end: number;
   volume: number;
+  narration?: { blob: Blob; start: number };
 }
 export interface VideoProcessingOptions {
   segments?: VideoSegment[];

@@ -31,6 +31,9 @@ const copy = {
 };
 export function ReferencePicker({
   role,
+  title,
+  description,
+  actionLabel,
   assets,
   selectedIds,
   onApply,
@@ -38,6 +41,9 @@ export function ReferencePicker({
   onClose,
 }: {
   role: ReferenceRole;
+  title?: string;
+  description?: string;
+  actionLabel?: string;
   assets: Asset[];
   selectedIds: string[];
   onApply: (ids: string[]) => Promise<unknown>;
@@ -141,7 +147,12 @@ export function ReferencePicker({
     }
   };
   return (
-    <StudioDialog title={copy[role].title} wide busy={busy} onClose={onClose}>
+    <StudioDialog
+      title={title || copy[role].title}
+      wide
+      busy={busy}
+      onClose={onClose}
+    >
       <div
         className={`reference-picker ${dragging ? "is-dragging" : ""}`}
         onDragEnter={(e) => {
@@ -171,7 +182,7 @@ export function ReferencePicker({
       >
         {!focused && (
           <>
-            <p className="hint">{copy[role].hint}</p>
+            <p className="hint">{description || copy[role].hint}</p>
             <input
               ref={input}
               type="file"
@@ -327,7 +338,7 @@ export function ReferencePicker({
             disabled={busy || (max === 1 && !chosen.length)}
             onClick={() => void apply()}
           >
-            {busy ? "Guardando…" : copy[role].action}
+            {busy ? "Guardando…" : actionLabel || copy[role].action}
           </button>
         </footer>
       </div>

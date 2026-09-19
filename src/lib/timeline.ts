@@ -6,6 +6,7 @@ import {
   type Project,
   type Scene,
   type SequenceItem,
+  type Narration,
 } from "../types";
 export const FRAME = 1 / 24;
 export function makeSequenceItem(
@@ -16,6 +17,7 @@ export function makeSequenceItem(
     id,
     scene_id: scene.id,
     version_id: activeVersion(scene)?.id,
+    follow_active: !!scene.story,
     in: 0,
     volume: 1,
   };
@@ -30,16 +32,21 @@ export function projectSequence(project: Project, scenes: Scene[]) {
 }
 export function sequenceSource(item: SequenceItem, scenes: Scene[]) {
   const scene = scenes.find((s) => s.id === item.scene_id && !s.deleted_at);
-  const version = item.version_id
-    ? scene?.versions?.find((v) => v.id === item.version_id)
-    : undefined;
+  const version =
+    item.follow_active && scene
+      ? activeVersion(scene)
+      : item.version_id
+        ? scene?.versions?.find((v) => v.id === item.version_id)
+        : undefined;
   return {
     scene,
-    blob: item.version_id
-      ? version?.blob
-      : scene
-        ? scene.video_blob || sceneBlob(scene)
-        : undefined,
+    version_id: item.follow_active ? version?.id : item.version_id,
+    blob:
+      item.version_id || item.follow_active
+        ? version?.blob
+        : scene
+          ? scene.video_blob || sceneBlob(scene)
+          : undefined,
     duration: version?.duration || (scene ? sceneSettings(scene).duration : 8),
   };
 }
@@ -49,14 +56,21 @@ export function resolveTimeline(
   items: SequenceItem[],
   scenes: Scene[],
   durations: Record<string, number> = {},
+  narrations: Narration[] = [],
 ) {
   let cursor = 0;
   return items.map((item) => {
     const source = sequenceSource(item, scenes);
-    const duration = Math.max(
+    const audio = narrations.find((n) => n.id === source.scene?.story?.audioId);
+    const story = source.scene?.story;
+    const narrationLength =
+      audio && story ? (story.audioEnd || 0) - (story.audioStart || 0) : 0;
+    const videoDuration = Math.max(
       FRAME,
-      durations[sourceKey(item)] || source.duration,
+      durations[sourceKey({ ...item, version_id: source.version_id })] ||
+        source.duration,
     );
+    const duration = narrationLength || videoDuration;
     const start = Math.max(0, Math.min(item.in, duration - FRAME));
     const end = Math.max(
       start + FRAME,
@@ -68,6 +82,10 @@ export function resolveTimeline(
       in: start,
       out: end,
       sourceDuration: duration,
+      videoDuration,
+      narration: audio
+        ? { blob: audio.blob, offset: story?.audioStart || 0 }
+        : undefined,
       start: cursor,
       length: end - start,
     };

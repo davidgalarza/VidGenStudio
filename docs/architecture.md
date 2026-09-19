@@ -11,6 +11,10 @@ flowchart LR
   UI[Interfaz React] --> Workspace[Controlador del espacio de trabajo]
   Workspace --> DB[(IndexedDB)]
   Workspace --> Google[API de Google]
+  Workspace --> Story[Preparación de Historia]
+  Story --> ElevenLabs[Voz con tiempos]
+  Story --> Google
+  Story --> DB
   UI --> Settings[localStorage: clave y ajustes]
   UI --> Timeline[Montaje local]
   Timeline --> Player[Previsualización HTMLVideo]
@@ -38,7 +42,7 @@ flowchart LR
 
 ## Persistencia y compatibilidad
 
-IndexedDB conserva el nombre `vid-gen-studio`, versión de esquema 1, y los almacenes `projects`, `scenes`, `assets` y `usage_logs`. `scenes` tiene un índice `by-project`. Los campos nuevos son opcionales para leer registros anteriores; una migración estructural futura debe incrementar la versión y preservar los blobs.
+IndexedDB conserva el nombre `vid-gen-studio`, versión de esquema 2, y los almacenes `projects`, `scenes`, `assets`, `usage_logs` y `narrations`. `scenes` y `narrations` tienen un índice `by-project`. La migración desde la versión 1 añade narraciones sin sustituir los datos existentes. Los campos nuevos son opcionales para leer registros anteriores; una migración estructural futura debe incrementar la versión y preservar los blobs.
 
 - `Project`: nombre, fechas, IDs de clips del montaje y `sequence_items` cuando existe un montaje detallado.
 - `Scene`: borrador, ajustes, referencias, estado, versiones y solicitudes pendientes. `origin` enlaza un clip derivado con su fuente.
@@ -49,6 +53,10 @@ IndexedDB conserva el nombre `vid-gen-studio`, versión de esquema 1, y los alma
 `sceneBlob` y `activeVersion` leen la versión activa con compatibilidad para el antiguo `video_blob`. Las URL `blob:` se crean para reproducir y se revocan; no son enlaces duraderos que puedan compartirse.
 
 `usage_logs` se conserva por compatibilidad; no representa una factura de Google ni permite calcular cargos reales. La clave está separada en localStorage; consulta [privacidad](privacy.md).
+
+## Preparación de historias
+
+`src/lib/story.ts` segmenta texto, calcula rangos de voz y construye prompts; `storyService.ts` prepara bloques y planes recuperables, y `elevenlabs.ts` encapsula la voz. `src/ui/StoryEditor.tsx` contiene el guion y el guion gráfico. El controlador mantiene la preparación fuera de la vista, con bloqueo entre pestañas y pausa tras la petición actual. La cola existente genera las escenas en su propio registro y añade versiones. Más detalles en [Historia](story.md).
 
 ## Ciclo de generación
 
@@ -67,9 +75,9 @@ Una interrupción antes de recibir un ID remoto es ambigua. No se puede garantiz
 
 `sequence_ids` conserva la compatibilidad y las marcas de la biblioteca. `sequence_items` representa las ocurrencias reales, permitiendo duplicados y divisiones. Los proyectos anteriores sin una secuencia explícita mantienen su orden heredado; los nuevos empiezan vacíos.
 
-La duración leída del vídeo prevalece sobre la duración declarada por la generación. `resolveTimeline` aplica límites a los recortes y calcula los inicios consecutivos sin huecos. `splitSequence` transforma una toma en dos rangos contiguos de la misma fuente. La versión fijada evita cambiar una toma silenciosamente al seleccionar otra generación en la biblioteca.
+En clips normales, la duración leída del vídeo prevalece sobre la duración declarada por la generación. En escenas con voz en off, el rango de narración define la duración del fragmento; una imagen más corta mantiene su último fotograma. `follow_active` permite que las tomas de Historia sigan una regeneración o restauración de versión. `resolveTimeline` aplica límites a los recortes y calcula los inicios consecutivos sin huecos. `splitSequence` transforma una toma en dos rangos contiguos de la misma fuente. La versión fijada evita cambiar una toma silenciosamente al seleccionar otra generación en la biblioteca.
 
-La previsualización usa HTMLVideo y precarga la toma siguiente; no genera un archivo por cada cambio. La decodificación y el salto entre fuentes dependen del navegador. La referencia temporal del montaje es de 24 fps; no es un monitor de precisión para todos los códecs y dispositivos.
+La previsualización usa HTMLVideo y precarga la toma siguiente; en Historia con voz en off un elemento de audio lleva el reloj, con la imagen original silenciada; no genera un archivo por cada cambio. La decodificación y el salto entre fuentes dependen del navegador. La referencia temporal del montaje es de 24 fps; no es un monitor de precisión para todos los códecs y dispositivos.
 
 Los cambios se guardan serialmente. Deshacer/rehacer es un historial de la sesión del editor, no una pila persistida después de recargar. El bucle de revisión, el zoom, la vista ampliada y el panel móvil son controles temporales. Eliminar una toma del montaje no elimina el clip; la papelera de clips conserva las posiciones y recortes para su restauración.
 

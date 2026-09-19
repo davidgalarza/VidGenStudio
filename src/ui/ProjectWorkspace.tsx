@@ -15,6 +15,7 @@ import {
   Star,
   CircleSlash,
   Columns2,
+  BookOpen,
 } from "lucide-react";
 import {
   activeVersion,
@@ -35,6 +36,7 @@ import { Editor } from "./Editor";
 import { VideoDownloadDialog } from "./VideoDownloadDialog";
 import { DownloadDialog } from "./DownloadDialog";
 import { CompareDialog } from "./CompareDialog";
+import { StoryEditor } from "./StoryEditor";
 
 export function ProjectWorkspace({
   project,
@@ -47,7 +49,7 @@ export function ProjectWorkspace({
   settings: (clipId?: string) => void;
   initialClipId?: string;
 }) {
-  const [view, setView] = useState<"clips" | "edit" | "sequence">(
+  const [view, setView] = useState<"clips" | "edit" | "sequence" | "story">(
     initialClipId ? "edit" : "clips",
   );
   const [editing, setEditing] = useState(initialClipId || "");
@@ -172,6 +174,17 @@ export function ProjectWorkspace({
         onBack={() => setView("clips")}
       />
     );
+  if (view === "story")
+    return (
+      <StoryEditor
+        key={project.id}
+        project={project}
+        workspace={w}
+        onBack={() => setView("clips")}
+        onSequence={() => setView("sequence")}
+        onSettings={() => settings()}
+      />
+    );
   return (
     <div className="project-clips">
       <div className="editor-top">
@@ -193,6 +206,10 @@ export function ProjectWorkspace({
           </span>
         </div>
         <div className="inline">
+          <button className="button compact" onClick={() => setView("story")}>
+            <BookOpen size={15} />
+            Historia
+          </button>
           <button
             className="button compact"
             disabled={
@@ -204,6 +221,7 @@ export function ProjectWorkspace({
           </button>
           <button
             className="button compact"
+            disabled={w.storyJob?.projectId === project.id}
             onClick={() => setView("sequence")}
           >
             <Layers size={15} />

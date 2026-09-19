@@ -11,6 +11,9 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 
 ### Añadido
 
+- Modo Historia: guiones completos, personajes hablados o ElevenLabs, estilos visuales, plan editable con Gemini y regeneración por escena.
+- Narración persistida con tiempos reales, recortes vinculados, reproducción y exportación con voz, recuperación de preparación y descarga de materiales.
+
 - Integración REST de Omni, edición/extensión como clips derivados, referencias normalizadas y recuperación de resultados.
 - Biblioteca de clips, favoritos, descartados, comparación, reutilización y papelera restaurable.
 - Cola persistida con múltiples salidas independientes, pausa, prioridades y cancelación de pendientes.

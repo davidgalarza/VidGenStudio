@@ -65,7 +65,7 @@ export async function stitchVideos(
         ]);
         const info = JSON.parse(
           (await ffmpeg.readFile(probe, "utf8")) as string,
-        ) as { streams: { codec_type: string }[] };
+        ) as { streams: { codec_type: string; duration?: string }[] };
         if (
           !Array.isArray(info.streams) ||
           !info.streams.some((stream) => stream.codec_type === "video")
@@ -77,30 +77,59 @@ export async function stitchVideos(
           (stream) => stream.codec_type === "audio",
         );
         const segment = options.segments?.[i];
+        const narration = segment?.narration;
+        if (narration) {
+          if (!Number.isFinite(narration.start) || narration.start < 0)
+            throw new Error("El inicio de la narración no es válido.");
+          const audio = `voice-${i}.mp3`;
+          files.push(audio);
+          await ffmpeg.writeFile(audio, await fetchFile(narration.blob));
+        }
         const code = await ffmpeg.exec([
-          ...(segment ? ["-ss", String(segment.start)] : []),
-          "-i",
-          input,
-          ...(!hasAudio
+          ...(segment
             ? [
-                "-f",
-                "lavfi",
-                "-i",
-                "anullsrc=channel_layout=stereo:sample_rate=48000",
+                "-ss",
+                String(
+                  narration
+                    ? Math.min(
+                        segment.start,
+                        Math.max(
+                          0,
+                          Number(
+                            info.streams.find((s) => s.codec_type === "video")
+                              ?.duration || segment.end,
+                          ) -
+                            1 / 24,
+                        ),
+                      )
+                    : segment.start,
+                ),
               ]
             : []),
+          "-i",
+          input,
+          ...(narration
+            ? ["-ss", String(narration.start), "-i", `voice-${i}.mp3`]
+            : !hasAudio
+              ? [
+                  "-f",
+                  "lavfi",
+                  "-i",
+                  "anullsrc=channel_layout=stereo:sample_rate=48000",
+                ]
+              : []),
           "-map",
           "0:v:0",
           "-map",
-          hasAudio ? "0:a:0" : "1:a:0",
+          narration || !hasAudio ? "1:a:0" : "0:a:0",
           "-vf",
-          `scale=${width}:${height}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24`,
+          `scale=${width}:${height}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24${narration && segment ? `,tpad=stop_mode=clone:stop_duration=${segment.end - segment.start}` : ""}`,
           ...(segment
             ? [
                 "-t",
                 String(segment.end - segment.start),
                 "-af",
-                `volume=${segment.volume}`,
+                `volume=${segment.volume},apad`,
               ]
             : []),
           "-c:v",

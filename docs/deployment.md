@@ -12,8 +12,8 @@
 ## Desarrollo local
 
 ```bash
-git clone https://github.com/davidgalarza/Video_Orchestrator.git
-cd Video_Orchestrator
+git clone https://github.com/davidgalarza/VidGenStudio.git
+cd VidGenStudio
 npm ci
 npm run dev
 ```
