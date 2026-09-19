@@ -11,7 +11,7 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 
 ### Añadido
 
-- Modo Historia: guiones completos, personajes hablados o ElevenLabs, estilos visuales, plan editable con Gemini y regeneración por escena.
+- Modo Historia: guiones completos, personajes hablados o Gemini TTS, estilos visuales, plan editable con Gemini y regeneración por escena.
 - Narración persistida con tiempos reales, recortes vinculados, reproducción y exportación con voz, recuperación de preparación y descarga de materiales.
 
 - Integración REST de Omni, edición/extensión como clips derivados, referencias normalizadas y recuperación de resultados.
@@ -25,6 +25,10 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 - Guías de uso, arquitectura, despliegue, privacidad, desarrollo, seguridad y publicación; plantillas de colaboración y resumen en inglés.
 
 ### Cambiado
+
+- Historia empieza por el guion: Gemini completa una propuesta editable de escenas, reparto, voces y referencias de Nano Banana antes de producir.
+- Gemini TTS sustituye ElevenLabs con la misma clave de Google; WAV con duración real y cortes por pausas, sin inventar tiempos por palabra. Los audios antiguos se conservan.
+- Revisiones persistidas, edición de escenas y referencias, planificación por lotes y recuperación de trabajo guardado.
 
 - Los proyectos nuevos empiezan vacíos y los clips se crean por acción del usuario.
 - Interfaz en español y de uso general, sin plantillas ni posicionamiento exclusivo para redes sociales.

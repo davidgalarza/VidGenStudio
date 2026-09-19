@@ -60,7 +60,7 @@ npm run test:e2e
 
 Playwright no inicia automáticamente un servidor. Sin la variable anterior usa `http://127.0.0.1:5173`; comprueba el puerto para no probar una compilación antigua. No reconstruyas `dist` mientras se ejecutan las pruebas contra preview, porque cambiarían las URL de los módulos.
 
-Las pruebas crean datos sintéticos en contextos aislados e interceptan las solicitudes de generación a Google y ElevenLabs. `e2e/story.spec.ts` comprueba historias, reutilización de audio tras fallos y exportación con narración. `e2e/fixtures/narration.mp3` contiene un tono sintético de 17 segundos, no una voz personal. Los escenarios de exportación ejecutan FFmpeg real y comprueban MP4/ZIP, dimensiones, audio y duración. No uses tu perfil personal del navegador para sembrar estos datos.
+Las pruebas crean datos sintéticos en contextos aislados e interceptan las solicitudes de generación a Google. `e2e/story.spec.ts` comprueba propuesta editable, conservación del guion, referencias, pausa y recuperación sin repetir audio guardado, diálogo y exportación con narración. Los mocks de Gemini TTS generan PCM de un tono sintético; no son voces personales. Los escenarios de exportación ejecutan FFmpeg real y comprueban MP4/ZIP, dimensiones, audio y duración. No uses tu perfil personal del navegador para sembrar estos datos.
 
 Para ejecutar solo el área modificada:
 

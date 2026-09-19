@@ -15,8 +15,6 @@ import {
   setApiKey,
   getDefaults,
   saveDefaults,
-  getElevenLabsKey,
-  setElevenLabsKey,
 } from "../lib/settings";
 import { errorMessage, testApiKey } from "../lib/google";
 import { IconButton, VideoControls } from "./common";
@@ -35,7 +33,6 @@ export function Settings({
   const [checking, setChecking] = useState(false);
   const [checked, setChecked] = useState(false);
   const [defaults, setDefaults] = useState(getDefaults);
-  const [elevenKey, setElevenKey] = useState(getElevenLabsKey);
   async function check() {
     setChecking(true);
     setChecked(false);
@@ -158,60 +155,12 @@ export function Settings({
         </a>
       </section>
       <section className="settings-section">
-        <div className="settings-section-title">
-          <KeyRound size={21} />
-          <div>
-            <h2>Voz en off con ElevenLabs</h2>
-            <p>Opcional. Narra tus guiones en el modo Historia.</p>
-          </div>
-        </div>
-        <label>
-          ElevenLabs API key
-          <input
-            type="password"
-            autoComplete="off"
-            value={elevenKey}
-            onChange={(e) => setElevenKey(e.target.value)}
-            placeholder="Pega tu clave de ElevenLabs"
-          />
-        </label>
-        <div className="settings-buttons">
-          <button
-            className="button"
-            onClick={() => {
-              try {
-                setElevenLabsKey(elevenKey);
-                w.notify(
-                  elevenKey.trim()
-                    ? "Clave de ElevenLabs guardada en este navegador."
-                    : "Clave de ElevenLabs eliminada.",
-                );
-              } catch {
-                w.notify(
-                  "No se pudo guardar la clave en este navegador.",
-                  true,
-                );
-              }
-            }}
-          >
-            <Save size={15} />
-            Guardar conexión de voz
-          </button>
-          <button
-            className="text-button"
-            disabled={!elevenKey || !!w.storyJob}
-            onClick={() => {
-              setElevenLabsKey("");
-              setElevenKey("");
-              w.notify("Clave de ElevenLabs eliminada.");
-            }}
-          >
-            Eliminar clave
-          </button>
-        </div>
-        <p className="hint">
-          La clave se envía solo a ElevenLabs. Las voces se eligen al crear la
-          historia y el consumo se factura en tu cuenta de ElevenLabs.
+        <h2>Una conexión para toda la historia</h2>
+        <p>
+          Tu clave de Google permite preparar el guion con Gemini, narrarlo con
+          Gemini TTS, generar referencias con Nano Banana y producir los vídeos.
+          El acceso y el consumo dependen de los modelos habilitados en tu
+          cuenta.
         </p>
       </section>
       <section className="settings-section">

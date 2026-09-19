@@ -44,6 +44,14 @@ export interface StoryCharacter {
   voice: string;
   referenceId?: string;
 }
+export interface StoryReference {
+  id: string;
+  name: string;
+  type: Asset["type"];
+  prompt: string;
+  characterName?: string;
+  assetId?: string;
+}
 export interface StoryConfig {
   script: string;
   mode: StoryMode;
@@ -53,17 +61,32 @@ export interface StoryConfig {
   voiceId: string;
   voiceName: string;
   settings: VideoSettings;
+  voiceDirection?: string;
+  references?: StoryReference[];
 }
 export interface StoryBlock {
   id: string;
   text: string;
   speaker?: string;
   sceneIds?: string[];
+  title?: string;
+  visual?: string;
+  referenceIds?: string[];
+  referenceNames?: string[];
 }
 export interface Story extends StoryConfig {
   id: string;
   blocks: StoryBlock[];
   error?: string;
+  phase?: "planning" | "review" | "production" | "ready";
+  revision?: number;
+  autoReferences?: boolean;
+  planning?: {
+    units: string[];
+    cursor: number;
+    mode?: StoryMode;
+    style?: StoryStyle;
+  };
 }
 export interface SpeechAlignment {
   characters: string[];
@@ -79,6 +102,11 @@ export interface Narration {
   alignment?: SpeechAlignment;
   duration?: number;
   requestId?: string;
+  provider?: "gemini";
+  direction?: string;
+  text?: string;
+  voice?: string;
+  cuts?: number[];
 }
 export interface StoryScene {
   storyId: string;
@@ -90,6 +118,7 @@ export interface StoryScene {
   audioId?: string;
   audioStart?: number;
   audioEnd?: number;
+  part?: { index: number; total: number };
 }
 export function sequenceScenes(project: Project, scenes: Scene[]): Scene[] {
   const own = scenes.filter((s) => s.project_id === project.id);

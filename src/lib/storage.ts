@@ -1,6 +1,6 @@
 import { openDB, type DBSchema } from "idb";
 import { makeSequenceItem } from "./timeline";
-import { storyReferenceIds } from "./story";
+import { makeStory, storyReferenceIds } from "./story";
 import {
   sceneSettings,
   sequenceScenes,
@@ -583,6 +583,7 @@ export async function deleteProject(id: string) {
   await tx.done;
   try {
     sessionStorage.removeItem(`vidgen-story-draft-${id}`);
+    sessionStorage.removeItem(`vidgen-story-review-${id}`);
   } catch {
     /* Storage may be unavailable outside the browser. */
   }
@@ -595,18 +596,29 @@ export async function deleteAsset(id: string) {
   const tx = db.transaction(["assets", "scenes", "projects"], "readwrite");
   await tx.objectStore("assets").delete(id);
   for (const project of await tx.objectStore("projects").getAll())
-    if (project.story?.characters.some((c) => c.referenceId === id))
-      await tx
-        .objectStore("projects")
-        .put({
-          ...project,
-          story: {
-            ...project.story,
-            characters: project.story.characters.map((c) =>
-              c.referenceId === id ? { ...c, referenceId: undefined } : c,
-            ),
-          },
-        });
+    if (
+      project.story &&
+      (project.story.characters.some((c) => c.referenceId === id) ||
+        project.story.references?.some((r) => r.assetId === id) ||
+        project.story.blocks.some((b) => b.referenceIds?.includes(id)))
+    )
+      await tx.objectStore("projects").put({
+        ...project,
+        story: {
+          ...project.story,
+          revision: (project.story.revision || 0) + 1,
+          references: project.story.references?.map((r) =>
+            r.assetId === id ? { ...r, assetId: undefined } : r,
+          ),
+          blocks: project.story.blocks.map((b) => ({
+            ...b,
+            referenceIds: b.referenceIds?.filter((ref) => ref !== id),
+          })),
+          characters: project.story.characters.map((c) =>
+            c.referenceId === id ? { ...c, referenceId: undefined } : c,
+          ),
+        },
+      });
   for (const scene of await tx.objectStore("scenes").getAll())
     await tx.objectStore("scenes").put({
       ...scene,
@@ -681,16 +693,21 @@ export async function createStoryScenes(
   let order = Math.max(-1, ...all.map((s) => s.order)) + 1;
   const scenes: Scene[] = [];
   for (const draft of drafts) {
-    const character = project.story.characters.find(
-      (c) => c.name === draft.story.speaker,
-    );
-    const references = storyReferenceIds(project.story, draft.story.speaker);
+    const references =
+      block.referenceIds ??
+      storyReferenceIds(
+        project.story,
+        draft.story.speaker,
+        block.referenceNames,
+      );
     const scene: Scene = {
       ...makeScene(projectId, order++, {
         ...project.story.settings,
         duration: draft.duration,
       }),
-      title: `Escena ${all.filter((s) => s.story).length + scenes.length + 1}`,
+      title: block.title
+        ? `${block.title}${drafts.length > 1 ? ` · ${scenes.length + 1}/${drafts.length}` : ""}`
+        : `Escena ${all.filter((s) => s.story).length + scenes.length + 1}`,
       story: draft.story,
       reference_asset_ids:
         project.story.settings.model === "gemini-omni-1.1-flash"
@@ -698,7 +715,7 @@ export async function createStoryScenes(
           : [],
       first_frame_asset_id:
         project.story.settings.model !== "gemini-omni-1.1-flash"
-          ? character?.referenceId
+          ? references[0]
           : undefined,
     };
     await tx.objectStore("scenes").put(scene);
@@ -717,10 +734,139 @@ export async function createStoryScenes(
       project.sequence_aspect || project.story.settings.aspectRatio,
     story: {
       ...project.story,
+      revision: (project.story.revision || 0) + 1,
       blocks: project.story.blocks.map((b) =>
         b.id === blockId ? { ...b, sceneIds: scenes.map((s) => s.id) } : b,
       ),
     },
   });
   await tx.done;
+}
+
+export async function saveStoryState(
+  projectId: string,
+  story: Story,
+  expectedRevision = story.revision || 0,
+) {
+  const db = await connection;
+  const tx = db.transaction("projects", "readwrite");
+  const project = await tx.store.get(projectId);
+  if (!project?.story || project.story.id !== story.id)
+    throw new Error("La historia ya no está disponible.");
+  if ((project.story.revision || 0) !== expectedRevision)
+    throw new Error(
+      "La historia cambió en otra vista. Vuelve a abrirla antes de guardar.",
+    );
+  const next = { ...story, revision: expectedRevision + 1 };
+  await tx.store.put({ ...project, story: next, updated_at: now() });
+  await tx.done;
+  return next;
+}
+export async function saveStoryDraft(projectId: string, story: Story) {
+  if (story.phase !== "review" || story.blocks.some((b) => b.sceneIds))
+    throw new Error(
+      "La producción ya comenzó. Edita cada clip desde sus controles.",
+    );
+  if (
+    !story.blocks.length ||
+    story.blocks.some((b) => !b.text.trim() || !b.visual?.trim())
+  )
+    throw new Error("Cada escena necesita texto y una descripción visual.");
+  if (new Set(story.blocks.map((b) => b.id)).size !== story.blocks.length)
+    throw new Error("Hay escenas duplicadas en la propuesta.");
+  if (story.blocks.some((b) => b.text.length > 3000))
+    throw new Error(
+      "Una escena contiene más de 3.000 caracteres. Divídela antes de producir para mantener una narración clara.",
+    );
+  if (story.mode === "spoken") {
+    for (const block of story.blocks) {
+      if (
+        block.speaker &&
+        !story.characters.some((c) => c.name === block.speaker)
+      )
+        throw new Error("Elige un personaje existente para cada escena.");
+      makeStory({ ...story, script: block.text });
+    }
+  }
+  if (story.references?.some((r) => !r.name.trim() || !r.prompt.trim()))
+    throw new Error(
+      "Cada referencia necesita un nombre y una descripción para generarla.",
+    );
+  return saveStoryState(projectId, story);
+}
+export async function saveStoryReference(
+  projectId: string,
+  referenceId: string,
+  asset: Asset,
+) {
+  const db = await connection;
+  const tx = db.transaction(["projects", "assets"], "readwrite");
+  const project = await tx.objectStore("projects").get(projectId);
+  const story = project?.story;
+  const reference = story?.references?.find((r) => r.id === referenceId);
+  if (!project || !story || !reference)
+    throw new Error("Esta referencia ya no pertenece a la historia.");
+  await tx.objectStore("assets").put(asset);
+  await tx.objectStore("projects").put({
+    ...project,
+    updated_at: now(),
+    story: {
+      ...story,
+      revision: (story.revision || 0) + 1,
+      blocks: story.blocks.map((b) => ({
+        ...b,
+        referenceIds: b.referenceIds?.map((id) =>
+          id === reference.assetId ? asset.id : id,
+        ),
+      })),
+      references: story.references?.map((r) =>
+        r.id === referenceId ? { ...r, assetId: asset.id } : r,
+      ),
+      characters: story.characters.map((c) =>
+        c.name === reference.characterName
+          ? { ...c, referenceId: asset.id }
+          : c,
+      ),
+    },
+  });
+  await tx.done;
+}
+
+export async function savePendingStoryBlocks(
+  projectId: string,
+  expectedRevision: number,
+  changes: { id: string; text: string; visual: string }[],
+) {
+  const database = await connection;
+  const project = await database.get("projects", projectId);
+  const story = project?.story;
+  if (!story || !["production", "ready"].includes(story.phase || "production"))
+    throw new Error("Vuelve a abrir la historia antes de editarla.");
+  for (const change of changes) {
+    const block = story.blocks.find((b) => b.id === change.id);
+    if (!block || block.sceneIds)
+      throw new Error(
+        "Esta parte ya está producida. Edita su clip para conservar la narración.",
+      );
+    if (
+      !change.text.trim() ||
+      !change.visual.trim() ||
+      change.text.length > 3000
+    )
+      throw new Error(
+        "Cada parte necesita una descripción visual y entre 1 y 3.000 caracteres de texto.",
+      );
+    if (story.mode === "spoken") makeStory({ ...story, script: change.text });
+  }
+  return saveStoryState(
+    projectId,
+    {
+      ...story,
+      blocks: story.blocks.map((b) => ({
+        ...b,
+        ...changes.find((c) => c.id === b.id),
+      })),
+    },
+    expectedRevision,
+  );
 }

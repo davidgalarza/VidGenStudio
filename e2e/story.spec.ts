@@ -4,9 +4,18 @@ import type { Project, Scene, Narration } from "../src/types";
 const video = readFileSync(
   new URL("./fixtures/silent.mp4", import.meta.url),
 ).toString("base64");
-const narration = readFileSync(
-  new URL("./fixtures/narration.mp3", import.meta.url),
+const reference = readFileSync(
+  new URL("./fixtures/reference.png", import.meta.url),
 ).toString("base64");
+function pcmTone(seconds: number) {
+  const pcm = Buffer.alloc(Math.round(24000 * 2 * seconds));
+  for (let i = 0; i < pcm.length / 2; i++)
+    pcm.writeInt16LE(
+      Math.round(Math.sin((i / 24000) * Math.PI * 2 * 440) * 9000),
+      i * 2,
+    );
+  return pcm.toString("base64");
+}
 const script =
   "La luz entra por la ventana y alcanza una pequeña planta. Sus hojas transforman esa energía en alimento. Ahora vemos las raíces absorber agua del suelo y llevarla hasta las hojas.";
 async function init(page: Page) {
@@ -51,34 +60,30 @@ async function stored(page: Page) {
     };
   });
 }
-async function providers(page: Page, options: { failPlan?: boolean } = {}) {
-  const calls = { speech: 0, plans: 0, video: 0, prompts: [] as string[] };
-  await page.route("**/api.elevenlabs.io/**", async (route) => {
-    expect(route.request().headers()["x-goog-api-key"]).toBeUndefined();
-    if (route.request().method() === "GET")
-      return route.fulfill({
-        json: { voices: [{ voice_id: "test-voice", name: "Voz de prueba" }] },
-      });
-    calls.speech++;
-    const body = route.request().postDataJSON();
-    const chars = Array.from(body.text as string);
-    await route.fulfill({
-      json: {
-        audio_base64: narration,
-        alignment: {
-          characters: chars,
-          character_start_times_seconds: chars.map(
-            (_, i) => (i * 16.7) / chars.length,
-          ),
-          character_end_times_seconds: chars.map(
-            (_, i) => ((i + 1) * 16.7) / chars.length,
-          ),
-        },
-      },
-    });
+async function providers(
+  page: Page,
+  options: {
+    failPlan?: boolean;
+    failReference?: boolean;
+    failSpeech?: number;
+    spoken?: boolean;
+    split?: boolean;
+    holdSpeech?: Promise<void>;
+  } = {},
+) {
+  const calls = {
+    speech: 0,
+    plans: 0,
+    images: 0,
+    video: 0,
+    prompts: [] as string[],
+  };
+  await page.route("**/api.elevenlabs.io/**", () => {
+    throw new Error("No obsolete voice provider should receive a request");
   });
   await page.route("**/generativelanguage.googleapis.com/**", async (route) => {
     expect(route.request().headers()["xi-api-key"]).toBeUndefined();
+    expect(route.request().headers()["x-goog-api-key"]).toBe("test-google-key");
     const body = route.request().postDataJSON();
     if (body?.model === "gemini-3.8-flash") {
       calls.plans++;
@@ -87,7 +92,33 @@ async function providers(page: Page, options: { failPlan?: boolean } = {}) {
           status: 503,
           json: { error: { message: "Planner unavailable for this test" } },
         });
-      const scenes = JSON.parse(body.input.split("SCENES: ")[1]);
+      const units: { id: number; text: string }[] = JSON.parse(
+        body.input.split("SCRIPT_UNITS: ")[1],
+      );
+      const scenes =
+        options.spoken || options.split
+          ? units.map((u) => ({
+              start: u.id,
+              end: u.id,
+              title: `Momento ${u.id + 1}`,
+              visual:
+                "La cámara muestra una planta. Un diagrama explica la transformación de la luz.",
+              speaker: options.spoken
+                ? u.text.includes("Luis:")
+                  ? "Luis"
+                  : "Ana"
+                : "",
+            }))
+          : [
+              {
+                start: units[0].id,
+                end: units.at(-1)!.id,
+                title: "La energía de las plantas",
+                visual:
+                  "Un diagrama animado muestra cómo las hojas absorben luz.",
+                speaker: "",
+              },
+            ];
       return route.fulfill({
         json: {
           status: "completed",
@@ -98,12 +129,84 @@ async function providers(page: Page, options: { failPlan?: boolean } = {}) {
                 {
                   type: "text",
                   text: JSON.stringify({
-                    scenes: scenes.map((s: { id: string }, i: number) => ({
-                      id: s.id,
-                      title: `Escena planeada ${i + 1}`,
-                      visual: `La cámara muestra una planta. Un diagrama animado explica la transformación de la luz, paso ${i + 1}.`,
-                    })),
+                    mode: options.spoken ? "spoken" : "voiceover",
+                    style: "explainer",
+                    direction:
+                      "Ilustración didáctica, colores verdes y luz suave.",
+                    voice: "Kore",
+                    voiceDirection:
+                      "Español latinoamericano, tono cálido y explicativo.",
+                    characters: options.spoken
+                      ? [
+                          {
+                            name: "Ana",
+                            description: "Joven con camisa roja",
+                            voice: "Cálida, acento neutro",
+                          },
+                          {
+                            name: "Luis",
+                            description: "Gafas y pelo oscuro",
+                            voice: "Grave, acento neutro",
+                          },
+                        ]
+                      : [],
+                    references: [
+                      {
+                        name: "Mundo vegetal",
+                        type: "STYLE",
+                        characterName: "",
+                        prompt:
+                          "Ilustración didáctica de una planta verde, una sola vista, sin letras.",
+                      },
+                    ],
+                    scenes,
                   }),
+                },
+              ],
+            },
+          ],
+        },
+      });
+    }
+    if (body?.model === "gemini-3.1-flash-image") {
+      calls.images++;
+      if (options.failReference && calls.images === 1)
+        return route.fulfill({
+          status: 503,
+          json: { error: { message: "Image unavailable for this test" } },
+        });
+      return route.fulfill({
+        json: {
+          steps: [
+            {
+              type: "model_output",
+              content: [
+                { type: "image", data: reference, mime_type: "image/png" },
+              ],
+            },
+          ],
+        },
+      });
+    }
+    if (body?.model === "gemini-3.1-flash-tts-preview") {
+      calls.speech++;
+      if (calls.speech === options.failSpeech)
+        return route.fulfill({
+          status: 503,
+          json: { error: { message: "Speech unavailable for this test" } },
+        });
+      expect(body.generation_config.speech_config).toEqual([{ voice: "Kore" }]);
+      if (calls.speech === 1 && options.holdSpeech) await options.holdSpeech;
+      return route.fulfill({
+        json: {
+          steps: [
+            {
+              type: "model_output",
+              content: [
+                {
+                  type: "audio",
+                  data: pcmTone(options.split ? 2 : 12.5),
+                  mime_type: "audio/L16;codec=pcm;rate=24000",
                 },
               ],
             },
@@ -145,53 +248,60 @@ test("story voiceover covers script, resumes a failed plan without rebilling voi
   await page.setViewportSize({ width: 1440, height: 1000 });
   await init(page);
   await page.getByLabel("Guion completo", { exact: true }).fill(script);
-  await page
-    .getByLabel("ElevenLabs API key", { exact: true })
-    .fill("test-eleven-key");
-  await page
-    .getByRole("button", { name: "Cargar mis voces", exact: true })
-    .click();
-  await expect(page.getByLabel("Voz", { exact: true })).toHaveValue(
-    "test-voice",
-  );
-  await page
-    .getByLabel("Estilo visual", { exact: true })
-    .selectOption("explainer");
   if (process.env.STORY_CAPTURE)
     await page.screenshot({
-      path: "artifacts/story-setup-desktop.png",
+      path: "artifacts/story-script-desktop.png",
       fullPage: true,
     });
   await page
-    .getByRole("button", { name: "Preparar historia", exact: true })
+    .getByRole("button", { name: "Crear propuesta", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "Continuar preparación", exact: true }),
+    page.getByRole("button", { name: "Continuar propuesta", exact: true }),
   ).toBeVisible({ timeout: 15000 });
-  expect(calls.speech).toBe(1);
-  let data = await stored(page);
-  expect(data.narrations).toHaveLength(1);
-  expect(data.scenes.map((s) => s.story!.text).join("")).toBe(script);
-  // Reload and continue from persistent audio; no second speech POST.
+  expect(calls.speech).toBe(0);
   await page.reload();
   await page.getByRole("button", { name: "Historia", exact: true }).click();
   await page
-    .getByRole("button", { name: "Continuar preparación", exact: true })
+    .getByRole("button", { name: "Continuar propuesta", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: /^Generar vídeos/ }),
-  ).toBeEnabled({ timeout: 15000 });
-  expect(calls.speech).toBe(1);
-  const cards = page.locator(".story-scene");
-  await expect(cards).toHaveCount(2);
+    page
+      .getByRole("button", { name: "Producir historia", exact: true })
+      .first(),
+  ).toBeEnabled();
+  expect(calls.speech).toBe(0);
+  expect(calls.video).toBe(0);
+  expect(calls.images).toBe(1);
+  let data = await stored(page);
+  expect(data.projects[0].story?.blocks.map((b) => b.text).join("")).toBe(
+    script,
+  );
+  expect(data.scenes).toHaveLength(0);
+  await page
+    .getByLabel("Visual de la escena 1")
+    .fill("Un primer plano muestra cómo la hoja convierte la luz en energía.");
+  // Unsaved review edits survive refresh, and no media production occurs yet.
+  await page.reload();
+  await page.getByRole("button", { name: "Historia", exact: true }).click();
+  await expect(page.getByLabel("Visual de la escena 1")).toHaveValue(
+    "Un primer plano muestra cómo la hoja convierte la luz en energía.",
+  );
   if (process.env.STORY_CAPTURE) {
     await page.screenshot({
-      path: "artifacts/story-board-desktop.png",
+      path: "artifacts/story-proposal-desktop.png",
+      fullPage: true,
+    });
+    await page
+      .getByRole("button", { name: "Personajes y referencias", exact: true })
+      .click();
+    await page.screenshot({
+      path: "artifacts/story-references-desktop.png",
       fullPage: true,
     });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({
-      path: "artifacts/story-board-mobile.png",
+      path: "artifacts/story-references-mobile.png",
       fullPage: true,
     });
     expect(
@@ -199,9 +309,19 @@ test("story voiceover covers script, resumes a failed plan without rebilling voi
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
+    await page.getByRole("button", { name: /^Escenas/ }).click();
+    await page.screenshot({
+      path: "artifacts/story-proposal-mobile.png",
+      fullPage: true,
+    });
     await page.setViewportSize({ width: 1440, height: 1000 });
   }
-  await page.getByRole("button", { name: /^Generar vídeos/ }).click();
+  await page
+    .getByRole("button", { name: "Producir historia", exact: true })
+    .first()
+    .click();
+  const cards = page.locator(".story-scene");
+  await expect(cards).toHaveCount(2);
   await expect(cards.first().locator(".story-status")).toHaveText(
     "Vídeo listo",
     { timeout: 15000 },
@@ -228,6 +348,8 @@ test("story voiceover covers script, resumes a failed plan without rebilling voi
   );
   data = await stored(page);
   expect(data.scenes).toHaveLength(2);
+  expect(data.narrations[0].duration).toBe(12.5);
+  expect(data.narrations[0]).not.toHaveProperty("alignment");
   expect(data.scenes[0].versions).toHaveLength(2);
   expect(calls.speech).toBe(1);
   expect(calls.prompts.every((p) => p.includes("NO spoken dialogue"))).toBe(
@@ -300,38 +422,276 @@ test("story voiceover covers script, resumes a failed plan without rebilling voi
   expect(exported.rms).toBeGreaterThan(0.04); // Not just an empty/silent audio track.
   expect(errors).toEqual([]);
 });
-test("spoken story assigns multiple characters, segments long dialogue and persists the original script", async ({
+test("spoken story infers characters, keeps labels out of dialogue and generates without TTS", async ({
   page,
 }) => {
-  const calls = await providers(page);
+  const calls = await providers(page, { spoken: true });
   await init(page);
-  await page.getByRole("button", { name: /Personajes hablando/ }).click();
-  await page.getByLabel("Nombre del personaje 1").fill("Ana");
-  await page
-    .getByRole("button", { name: "Añadir personaje", exact: true })
-    .click();
-  await page.getByLabel("Nombre del personaje 2").fill("Luis");
   const script =
     "Ana: Hoy vamos a descubrir cómo cambia la luz durante el día y por qué ese cambio afecta a todas las plantas del jardín.\nLuis: Yo observaré sus hojas con mucha atención.";
   await page.getByLabel("Guion completo", { exact: true }).fill(script);
   await page
-    .getByRole("button", { name: "Preparar historia", exact: true })
+    .getByRole("button", { name: "Crear propuesta", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: /^Generar vídeos/ }),
+    page
+      .getByRole("button", { name: "Producir historia", exact: true })
+      .first(),
   ).toBeEnabled();
+  await page
+    .getByRole("button", { name: "Personajes y referencias", exact: true })
+    .click();
+  await expect(page.getByLabel("Nombre del personaje 1")).toHaveValue("Ana");
+  await expect(page.getByLabel("Nombre del personaje 2")).toHaveValue("Luis");
   expect(calls.speech).toBe(0);
+  await page
+    .getByRole("button", { name: "Producir historia", exact: true })
+    .first()
+    .click();
+  await expect(page.locator(".story-status").first()).toHaveText(
+    "Vídeo listo",
+    { timeout: 15000 },
+  );
   const data = await stored(page);
   expect(data.scenes.length).toBeGreaterThanOrEqual(3);
   expect(data.projects[0].story!.script).toBe(script);
   expect(data.scenes[0].prompt).toContain("Ana says exactly");
   expect(data.scenes.at(-1)!.prompt).toContain("Luis says exactly");
+  expect(data.scenes.every((s) => !/^(Ana|Luis):/.test(s.story!.text))).toBe(
+    true,
+  );
   expect(data.scenes.every((s) => s.settings!.duration <= 10)).toBe(true);
-  await page.getByRole("button", { name: /^Generar vídeos/ }).click();
   await expect(
     page.locator(".story-status").filter({ hasText: "Vídeo listo" }),
   ).toHaveCount(data.scenes.length);
   expect(calls.video).toBe(data.scenes.length);
+  expect(calls.speech).toBe(0);
+});
+test("pauses production after the current audio, then resumes after reload without recreating saved voices", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const holdSpeech = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const calls = await providers(page, { split: true, holdSpeech });
+  await init(page);
+  await page.getByLabel("Guion completo", { exact: true }).fill(script);
+  await page
+    .getByRole("button", { name: "Crear propuesta", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Producir historia", exact: true })
+    .first()
+    .click();
+  await expect.poll(() => calls.speech).toBe(1);
+  await page
+    .locator(".story-progress")
+    .getByRole("button", { name: "Pausar", exact: true })
+    .click();
+  release();
+  await expect(
+    page.getByRole("button", { name: "Continuar producción", exact: true }),
+  ).toBeEnabled();
+  expect(calls.speech).toBe(1);
+  expect(calls.video).toBe(0);
+  let data = await stored(page);
+  expect(data.narrations).toHaveLength(1);
+  await page.reload();
+  await page.getByRole("button", { name: "Historia", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Continuar producción", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Continuar producción", exact: true }),
+  ).toHaveCount(0);
+  await expect
+    .poll(async () => (await stored(page)).narrations.length)
+    .toBe(data.projects[0].story!.blocks.length);
+  data = await stored(page);
+  await expect(
+    page.locator(".story-status").filter({ hasText: "Vídeo listo" }),
+  ).toHaveCount(data.projects[0].story!.blocks.length);
+  expect(calls.speech).toBe(data.projects[0].story!.blocks.length);
+});
+test("failed references can continue without replanning, and edits can split and reorder the preserved text", async ({
+  page,
+}) => {
+  const calls = await providers(page, { failReference: true });
+  await init(page);
+  await page.getByLabel("Guion completo", { exact: true }).fill(script);
+  await page
+    .getByRole("button", { name: "Crear propuesta", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Continuar propuesta", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Continuar propuesta", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("button", { name: "Producir historia", exact: true })
+      .first(),
+  ).toBeEnabled();
+  expect(calls.plans).toBe(1);
+  expect(calls.images).toBe(2);
+  await page.getByRole("button", { name: "Dividir", exact: true }).click();
+  await expect(page.locator(".story-planned-scene")).toHaveCount(2);
+  const first = await page.getByLabel("Texto de la escena 1").inputValue();
+  const second = await page.getByLabel("Texto de la escena 2").inputValue();
+  expect(first + second).toBe(script);
+  await page
+    .getByRole("button", { name: "Bajar escena 1", exact: true })
+    .click();
+  await expect(page.getByLabel("Texto de la escena 1")).toHaveValue(second);
+  await page
+    .getByRole("button", { name: "Guardar cambios", exact: true })
+    .click();
+  const data = await stored(page);
+  expect(data.projects[0].story!.blocks.map((b) => b.text).join("")).toBe(
+    second + first,
+  );
+  expect(data.projects[0].story!.script).toBe(script);
+  expect(calls.video).toBe(0);
+});
+
+test("initial guidance survives leaving the script and a review conflict offers draft recovery", async ({
+  page,
+}) => {
+  await providers(page);
+  await init(page);
+  await page.getByLabel("Guion completo", { exact: true }).fill(script);
+  await page.locator(".story-preferences summary").click();
+  await page.getByLabel("Preferencia de narración").selectOption("voiceover");
+  await page.getByLabel("Preferencia de estilo").selectOption("cartoon");
+  await page
+    .getByLabel("Lo que tienes en mente")
+    .fill("Explicación para niños, colores planos");
+  await page.getByLabel("Crear también las referencias visuales").uncheck();
+  await page.reload();
+  await page.getByRole("button", { name: "Historia", exact: true }).click();
+  await page.locator(".story-preferences summary").click();
+  await expect(page.getByLabel("Preferencia de estilo")).toHaveValue("cartoon");
+  await expect(page.getByLabel("Lo que tienes en mente")).toHaveValue(
+    "Explicación para niños, colores planos",
+  );
+  await expect(
+    page.getByLabel("Crear también las referencias visuales"),
+  ).not.toBeChecked();
+  await page
+    .getByRole("button", { name: "Crear propuesta", exact: true })
+    .click();
+  await page
+    .getByLabel("Texto de la escena 1")
+    .fill("Mi versión editada permanece aunque cambie el proyecto.");
+  // Simulate another view saving the project while this tab has uncommitted review edits.
+  await page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve) => {
+      const r = indexedDB.open("vid-gen-studio");
+      r.onsuccess = () => resolve(r.result);
+    });
+    const tx = database.transaction("projects", "readwrite");
+    const request = tx.objectStore("projects").getAll();
+    request.onsuccess = () => {
+      const project = request.result[0];
+      project.story.revision++;
+      tx.objectStore("projects").put(project);
+    };
+    await new Promise<void>((resolve) => {
+      tx.oncomplete = () => resolve();
+    });
+    database.close();
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Historia", exact: true }).click();
+  await expect(
+    page
+      .getByRole("button", { name: "Producir historia", exact: true })
+      .first(),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Recuperar mi borrador", exact: true })
+    .click();
+  await expect(page.getByLabel("Texto de la escena 1")).toHaveValue(
+    "Mi versión editada permanece aunque cambie el proyecto.",
+  );
+  await page
+    .getByRole("button", { name: "Guardar cambios", exact: true })
+    .click();
+  expect((await stored(page)).projects[0].story!.blocks[0].text).toBe(
+    "Mi versión editada permanece aunque cambie el proyecto.",
+  );
+});
+test("a first speech failure returns to editable review before retrying", async ({
+  page,
+}) => {
+  const calls = await providers(page, { failSpeech: 1 });
+  await init(page);
+  await page.getByLabel("Guion completo", { exact: true }).fill(script);
+  await page
+    .getByRole("button", { name: "Crear propuesta", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Producir historia", exact: true })
+    .first()
+    .click();
+  await expect(
+    page.locator(".story-workspace-content").getByRole("alert"),
+  ).toContainText("Speech unavailable");
+  await page
+    .getByLabel("Texto de la escena 1")
+    .fill("El texto corregido se puede volver a producir.");
+  await page
+    .getByRole("button", { name: "Producir historia", exact: true })
+    .first()
+    .click();
+  await expect(
+    page.locator(".story-status").filter({ hasText: "Vídeo listo" }),
+  ).toHaveCount(2);
+  expect(calls.speech).toBe(2);
+  expect((await stored(page)).narrations[0].text).toBe(
+    "El texto corregido se puede volver a producir.",
+  );
+});
+test("partly produced stories allow correcting only pending text and retain finished narration", async ({
+  page,
+}) => {
+  const calls = await providers(page, { split: true, failSpeech: 2 });
+  await init(page);
+  await page.getByLabel("Guion completo", { exact: true }).fill(script);
+  await page
+    .getByRole("button", { name: "Crear propuesta", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Producir historia", exact: true })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Continuar producción", exact: true }),
+  ).toBeEnabled();
+  const initial = await stored(page);
+  expect(initial.narrations).toHaveLength(1);
+  await page.getByText("Editar partes pendientes", { exact: true }).click();
+  await page
+    .getByLabel("Texto pendiente 1")
+    .fill("Este texto se corrigió antes de crear su narración.");
+  await page
+    .getByRole("button", { name: "Continuar producción", exact: true })
+    .click();
+  await expect(
+    page.locator(".story-status").filter({ hasText: "Vídeo listo" }),
+  ).toHaveCount(initial.projects[0].story!.blocks.length);
+  const data = await stored(page);
+  expect(
+    data.narrations.find((n) => n.id === initial.narrations[0].id),
+  ).toBeTruthy();
+  expect(
+    data.narrations.some(
+      (n) => n.text === "Este texto se corrigió antes de crear su narración.",
+    ),
+  ).toBe(true);
+  expect(calls.speech).toBe(initial.projects[0].story!.blocks.length + 1);
 });
 
 test("migrates version-one projects and media without creating a default clip", async ({

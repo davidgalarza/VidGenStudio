@@ -8,7 +8,7 @@ This is an independent fork of [Video Orchestrator by Rajjit Laishram](https://g
 
 ## Features
 
-- **Story mode:** turn a script into editable scenes with character dialogue or ElevenLabs voiceover, visual styles, timed montage and per-scene regeneration. See the [Story guide](docs/story.md).
+- **Story mode:** paste a script and let Gemini propose scenes, cast, voices and Nano Banana references. Review everything before producing character dialogue or Gemini TTS voiceover with one Google key, timed montage and per-scene regeneration. See the [Story guide](docs/story.md).
 
 - Empty projects with user-created clips, search, favorites, trash and comparison.
 - Google video generation using a personal API key, visual references and a persistent queue.

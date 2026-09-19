@@ -610,3 +610,72 @@ export async function planStoryVisuals(
     );
   return scenes;
 }
+
+/** Authenticated, fixed-origin interaction for story planning, speech and reference art. */
+export function googleInteraction<T>(
+  apiKey: string,
+  payload: Record<string, unknown>,
+  timeout = 180000,
+): Promise<T> {
+  if (!apiKey.trim()) throw new Error("Conecta tu clave de Google en Ajustes.");
+  return request<T>(`${BASE}/interactions`, apiKey, {
+    method: "POST",
+    signal: AbortSignal.timeout(timeout),
+    body: JSON.stringify(payload),
+  });
+}
+export async function storyJSON<T>(
+  apiKey: string,
+  input: string,
+  schema: Record<string, unknown>,
+): Promise<T> {
+  const result = await googleInteraction<
+    Interaction & { output_text?: string }
+  >(apiKey, {
+    model: "gemini-3.8-flash",
+    input,
+    response_format: { type: "text", mime_type: "application/json", schema },
+  });
+  const text =
+    result.output_text ||
+    modelOutput(result)
+      .filter((part) => part.type === "text")
+      .map((part) => part.text || "")
+      .join("");
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(
+      "Gemini no devolvió una propuesta válida. El guion sigue guardado; puedes volver a intentarlo.",
+    );
+  }
+}
+export async function generateStoryReference(
+  apiKey: string,
+  prompt: string,
+  images: { data_url: string }[] = [],
+) {
+  const input = [
+    { type: "text", text: prompt },
+    ...images.map((a) => {
+      const match = a.data_url.match(/^data:(image\/[\w.+-]+);base64,(.+)$/s);
+      if (!match) throw new Error("La referencia de continuidad no es válida.");
+      return { type: "image", mime_type: match[1], data: match[2] };
+    }),
+  ];
+  const result = await googleInteraction<
+    Interaction & { output_image?: VideoOutput }
+  >(apiKey, {
+    model: "gemini-3.1-flash-image",
+    input,
+    response_format: { type: "image", aspect_ratio: "16:9", image_size: "1K" },
+  });
+  const output =
+    result.output_image ||
+    modelOutput(result).find((part) => part.type === "image" && part.data);
+  if (!output?.data || !output.mime_type?.startsWith("image/"))
+    throw new Error(
+      "Nano Banana no devolvió una imagen. Puedes reintentar esta referencia o elegir una de tu biblioteca.",
+    );
+  return base64Blob(output.data, output.mime_type);
+}

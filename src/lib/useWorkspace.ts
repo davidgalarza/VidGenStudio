@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as db from "./storage";
-import { prepareStory as prepareStoryContent } from "./storyService";
+import {
+  prepareStory as prepareStoryContent,
+  type StoryAction,
+} from "./storyService";
 import { getApiKey } from "./settings";
 import {
   buildOmniPayload,
@@ -95,6 +98,11 @@ export function useWorkspace() {
   }, []);
   useEffect(() => {
     let mounted = true;
+    try {
+      localStorage.removeItem("vidgen_elevenlabs_key");
+    } catch {
+      /* The retired provider's credential is no longer needed. */
+    }
     const blocked = () =>
       notify(
         "Cierra las otras pestañas de Vidgen Studio para actualizar el almacenamiento. Tus proyectos se conservarán.",
@@ -488,7 +496,11 @@ export function useWorkspace() {
     admission.current = result;
     return result;
   }
-  async function prepareStory(projectId: string) {
+  async function prepareStory(
+    projectId: string,
+    action: StoryAction = "produce",
+    referenceId?: string,
+  ) {
     if (storyRunning.current) return;
     storyRunning.current = true;
     storyStop.current = false;
@@ -501,6 +513,8 @@ export function useWorkspace() {
           await refresh();
         },
         () => storyStop.current,
+        action,
+        referenceId,
       );
     };
     try {
@@ -517,14 +531,50 @@ export function useWorkspace() {
           },
         );
       else await process();
+      if (action === "produce" && !storyStop.current) {
+        const latest = await db.readWorkspace();
+        const story = latest.projects.find((p) => p.id === projectId)?.story;
+        const ids = latest.scenes
+          .filter(
+            (s) =>
+              s.story?.storyId === story?.id &&
+              s.story?.planned &&
+              !sceneBlob(s) &&
+              !s.task?.remoteId &&
+              !s.generation_queue?.length &&
+              activeRequest.current?.sceneId !== s.id,
+          )
+          .map((s) => s.id);
+        if (
+          ids.length &&
+          !(await run(ids, "generate", undefined, false, 1, false, true))
+        )
+          return;
+      }
       notify(
         storyStop.current
           ? "Preparación pausada. Lo que ya se creó está guardado."
-          : "Historia preparada. Revisa las escenas y genera los vídeos.",
+          : action === "plan"
+            ? "Propuesta lista. Puedes editarla antes de producir."
+            : action === "references"
+              ? "Referencias guardadas."
+              : "Escenas preparadas y vídeos añadidos a la cola.",
       );
     } catch (e) {
       const message = errorMessage(e);
       await db.setStoryError(projectId, message).catch(() => {});
+      if (action === "produce") {
+        const latest = (await db.readWorkspace()).projects.find(
+          (p) => p.id === projectId,
+        )?.story;
+        if (
+          latest?.phase === "production" &&
+          latest.blocks.every((b) => !b.sceneIds)
+        )
+          await db
+            .saveStoryState(projectId, { ...latest, phase: "review" })
+            .catch(() => {});
+      }
       notify(message, true);
     } finally {
       try {

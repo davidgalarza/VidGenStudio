@@ -102,11 +102,21 @@ export function splitText(
   if (current) parts.push(current);
   return parts;
 }
+// Speaker labels are metadata. Renaming a cast member must not change spoken words.
+export function renameSpeakerLabel(text: string, from: string, to: string) {
+  return text.replace(
+    /(^|\n)([ \t]*)([^:\n]+)(:[ \t]*)/g,
+    (whole, line, space, name, colon) =>
+      name.trim().toLocaleLowerCase() === from.trim().toLocaleLowerCase()
+        ? `${line}${space}${to}${colon}`
+        : whole,
+  );
+}
 export function makeStory(config: StoryConfig): Story {
   if (!config.script.trim())
     throw new Error("Escribe el guion de tu historia.");
   if (config.mode === "voiceover" && !config.voiceId.trim())
-    throw new Error("Elige una voz de ElevenLabs.");
+    throw new Error("Elige una voz de Gemini TTS.");
   const names = config.characters.map((c) => c.name.trim());
   if (
     config.mode === "spoken" &&
@@ -170,13 +180,32 @@ export interface TimedText {
   start: number;
   end: number;
 }
-export function storyReferenceIds(story: StoryConfig, speaker?: string) {
+export function storyReferenceIds(
+  story: StoryConfig,
+  speaker?: string,
+  names?: string[],
+) {
+  if (names !== undefined)
+    return [
+      ...new Set(
+        names.flatMap(
+          (name) =>
+            story.references?.find(
+              (r) => r.name.toLocaleLowerCase() === name.toLocaleLowerCase(),
+            )?.assetId || [],
+        ),
+      ),
+    ].slice(0, 3);
   const character = story.characters.find((c) => c.name === speaker);
   return [
     ...new Set(
       [
         character?.referenceId,
+        ...(story.references || [])
+          .filter((r) => r.type === "STYLE")
+          .map((r) => r.assetId),
         ...story.characters.map((c) => c.referenceId),
+        ...(story.references || []).map((r) => r.assetId),
       ].filter((id): id is string => !!id),
     ),
   ].slice(0, 3);
@@ -199,7 +228,7 @@ export function alignNarration(
     a.characters.length !== a.character_end_times_seconds.length
   )
     throw new Error(
-      "ElevenLabs no devolvió tiempos válidos para el guion. El audio se conserva; no se vuelve a cobrar automáticamente.",
+      "El audio guardado no contiene tiempos válidos para el guion. El audio se conserva; no se vuelve a cobrar automáticamente.",
     );
   const ends = a.character_end_times_seconds;
   if (
@@ -211,7 +240,7 @@ export function alignNarration(
         (i > 0 && v < ends[i - 1]),
     )
   )
-    throw new Error("La sincronización de ElevenLabs no es válida.");
+    throw new Error("La sincronización del audio guardado no es válida.");
   const result: TimedText[] = [];
   let start = 0,
     char = 0;
@@ -238,6 +267,7 @@ export function alignNarration(
 export function storyPrompt(
   story: StoryConfig,
   scene: Pick<StoryScene, "text" | "speaker" | "visual">,
+  references = storyReferenceIds(story, scene.speaker),
 ) {
   const style = storyStyles.find((s) => s.id === story.style)!.prompt;
   const cast = story.characters
@@ -246,19 +276,20 @@ export function storyPrompt(
         `${c.name}: appearance ${c.description || "keep the same appearance in every shot"}; voice ${c.voice || "natural, conversational, clear diction"}.`,
     )
     .join("\n");
+  const describe = (id: string) =>
+    story.references?.find((r) => r.assetId === id)?.name ||
+    story.characters
+      .filter((c) => c.referenceId === id)
+      .map((c) => c.name)
+      .join(" / ") ||
+    "the visual identity to preserve";
   const guides =
     story.settings.model === OMNI_MODEL
-      ? storyReferenceIds(story, scene.speaker)
-          .map(
-            (id, i) =>
-              `Reference image ${i + 1} depicts ${story.characters
-                .filter((c) => c.referenceId === id)
-                .map((c) => c.name)
-                .join(" / ")}.`,
-          )
+      ? references
+          .map((id, i) => `Reference image ${i + 1} depicts ${describe(id)}.`)
           .join(" ")
-      : story.characters.find((c) => c.name === scene.speaker)?.referenceId
-        ? `The first frame depicts ${scene.speaker}. Preserve this character's appearance.`
+      : references[0]
+        ? `Use the first frame as a visual guide for ${describe(references[0])}. Preserve its appearance.`
         : "";
   return [
     `Create one shot from a continuous story. ${style}`,

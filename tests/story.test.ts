@@ -5,6 +5,8 @@ import {
   splitText,
   storyPrompt,
   storyVideoDuration,
+  storyReferenceIds,
+  renameSpeakerLabel,
 } from "../src/lib/story";
 import {
   DEFAULT_VIDEO,
@@ -12,7 +14,17 @@ import {
   type StoryConfig,
   type Narration,
 } from "../src/types";
-import { createSpeech, listVoices } from "../src/lib/elevenlabs";
+import {
+  createGeminiSpeech,
+  pcmToWave,
+  silenceCuts,
+  speechIntervals,
+} from "../src/lib/geminiSpeech";
+import {
+  newStoryProposal,
+  applyProposalBatch,
+  type ProposalResponse,
+} from "../src/lib/storyPlanner";
 import { planStoryVisuals } from "../src/lib/google";
 import * as db from "../src/lib/storage";
 import {
@@ -221,83 +233,288 @@ describe("story persistence and editable montage", () => {
   });
 });
 describe("provider contracts", () => {
-  it("sends the same voice settings and continuity context without sharing the Google key", async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            audio_base64: btoa("audio"),
-            alignment: audioFor("Hola.", 2).alignment,
-          }),
-          { headers: { "request-id": "speech-1" } },
-        ),
-      );
+  it("sends Gemini speech with a fixed voice, wraps PCM and measures its exact duration", async () => {
+    const pcm = new Uint8Array(24000 * 2 * 2);
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          steps: [
+            {
+              type: "model_output",
+              content: [
+                {
+                  type: "audio",
+                  data: btoa(String.fromCharCode(...pcm)),
+                  mime_type: "audio/L16;codec=pcm;rate=24000",
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    );
     vi.stubGlobal("fetch", fetch);
-    const result = await createSpeech("eleven-secret", "voice/id", "Hola.", {
-      previousText: "Antes.",
-      nextText: "Después.",
-      previousRequestIds: ["1", "2", "3", "4"],
-    });
+    const result = await createGeminiSpeech(
+      "google-secret",
+      "Kore",
+      "Hola.",
+      "Voz cercana",
+    );
     const [url, options] = fetch.mock.calls[0];
     expect(url).toBe(
-      "https://api.elevenlabs.io/v1/text-to-speech/voice%2Fid/with-timestamps?output_format=mp3_44100_128",
+      "https://generativelanguage.googleapis.com/v1beta/interactions",
     );
-    expect(options.headers["xi-api-key"]).toBe("eleven-secret");
-    expect(options.headers["x-goog-api-key"]).toBeUndefined();
+    expect(options.headers["x-goog-api-key"]).toBe("google-secret");
+    expect(options.headers["xi-api-key"]).toBeUndefined();
     expect(JSON.parse(options.body)).toMatchObject({
-      text: "Hola.",
-      model_id: "eleven_multilingual_v2",
-      previous_request_ids: ["2", "3", "4"],
+      model: "gemini-3.1-flash-tts-preview",
+      response_format: { type: "audio" },
+      generation_config: { speech_config: [{ voice: "Kore" }] },
     });
-    expect(await result.blob.text()).toBe("audio");
-    expect(result.requestId).toBe("speech-1");
+    expect(result.duration).toBe(2);
+    expect(result.blob.size).toBe(pcm.length + 44);
+    expect(result.blob.type).toBe("audio/wav");
+    expect(result.text).toBe("Hola.");
+    expect(result).not.toHaveProperty("alignment");
+    const header = new DataView(await result.blob.arrayBuffer());
+    expect(header.getUint32(24, true)).toBe(24000);
+    expect(header.getUint32(40, true)).toBe(pcm.length);
   });
   it("does not retry paid voice requests and redacts the key in provider errors", async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(
-          JSON.stringify({ detail: { message: "bad secret-key" } }),
-          { status: 401 },
-        ),
-      );
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: { message: "bad secret-key" } }), {
+        status: 401,
+      }),
+    );
     vi.stubGlobal("fetch", fetch);
     await expect(
-      createSpeech("secret-key", "voice", "Hola", {}),
+      createGeminiSpeech("secret-key", "Kore", "Hola"),
     ).rejects.toThrow("bad [clave]");
     expect(fetch).toHaveBeenCalledTimes(1);
-    await expect(listVoices("")).rejects.toThrow("Conecta");
+    await expect(createGeminiSpeech("", "Kore", "Hola")).rejects.toThrow(
+      "Conecta",
+    );
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("cuts only images at acoustic pauses, retaining all audio without invented word timestamps", () => {
+    const spans = speechIntervals(26.4, 10, [8.3, 17.4]);
+    expect(spans).toEqual([
+      { start: 0, end: 8.3 },
+      { start: 8.3, end: 17.4 },
+      { start: 17.4, end: 26.4 },
+    ]);
+    const noPauses = speechIntervals(41.1, 8);
+    expect(noPauses[0].start).toBe(0);
+    expect(noPauses.at(-1)?.end).toBe(41.1);
+    expect(
+      noPauses.every(
+        (s, i) =>
+          s.end - s.start <= 8 && (i === 0 || s.start === noPauses[i - 1].end),
+      ),
+    ).toBe(true);
+    expect(() => speechIntervals(1, 0.01)).toThrow();
+    expect(() => pcmToWave(new Uint8Array(3))).toThrow();
+    const pcm = new Uint8Array(24000 * 2 * 2),
+      view = new DataView(pcm.buffer);
+    for (let i = 0; i < 48000; i++)
+      if (i < 12000 || i > 24000) view.setInt16(i * 2, 10000, true);
+    expect(silenceCuts(pcm, 24000)[0]).toBeCloseTo(0.76, 1);
   });
   it("rejects a planner response that omits or replaces requested scenes", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(
-            JSON.stringify({
-              steps: [
-                {
-                  type: "model_output",
-                  content: [
-                    {
-                      type: "text",
-                      text: JSON.stringify({
-                        scenes: [
-                          { id: "wrong", title: "Uno", visual: "Una mesa" },
-                        ],
-                      }),
-                    },
-                  ],
-                },
-              ],
-            }),
-          ),
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            steps: [
+              {
+                type: "model_output",
+                content: [
+                  {
+                    type: "text",
+                    text: JSON.stringify({
+                      scenes: [
+                        { id: "wrong", title: "Uno", visual: "Una mesa" },
+                      ],
+                    }),
+                  },
+                ],
+              },
+            ],
+          }),
         ),
+      ),
     );
     await expect(
       planStoryVisuals("test", "prompt", ["expected"]),
     ).rejects.toThrow("incompleto");
+  });
+});
+
+const proposal: ProposalResponse = {
+  mode: "voiceover",
+  style: "explainer",
+  direction: "Ilustración clara",
+  voice: "Kore",
+  voiceDirection: "Voz cercana",
+  characters: [
+    { name: "Ana", description: "Camisa verde", voice: "Tranquila" },
+  ],
+  references: [
+    {
+      name: "Ana",
+      type: "CHARACTER",
+      characterName: "Ana",
+      prompt: "Retrato de Ana",
+    },
+  ],
+  scenes: [],
+};
+describe("editable Gemini proposals", () => {
+  it("selects only planned scene references and renames speaker labels without touching words", () => {
+    expect(
+      storyReferenceIds(
+        {
+          ...config,
+          references: [
+            {
+              id: "1",
+              name: "Bosque",
+              type: "STYLE",
+              prompt: "",
+              assetId: "forest",
+            },
+            {
+              id: "2",
+              name: "Casa",
+              type: "STYLE",
+              prompt: "",
+              assetId: "house",
+            },
+          ],
+        },
+        undefined,
+        ["Bosque"],
+      ),
+    ).toEqual(["forest"]);
+    expect(storyReferenceIds(config, undefined, [])).toEqual([]);
+    expect(
+      renameSpeakerLabel(
+        "Ana: Hola, Luis.\nLuis: Hola Ana.\nAna: Vamos.",
+        "Ana",
+        "María",
+      ),
+    ).toBe("María: Hola, Luis.\nLuis: Hola Ana.\nMaría: Vamos.");
+  });
+  it("preserves every script character across batches, honors preferences and adds later characters", () => {
+    const script =
+      "Ana: Hola, esta es nuestra historia.\n\nLuis: Un segundo personaje entra después. "
+        .repeat(80)
+        .trim();
+    let story = newStoryProposal(script, { mode: "spoken", style: "cartoon" });
+    while (story.planning!.cursor < story.planning!.units.length) {
+      const cursor = story.planning!.cursor,
+        count = Math.min(30, story.planning!.units.length - cursor);
+      story = applyProposalBatch(
+        story,
+        {
+          ...proposal,
+          characters: cursor
+            ? [{ name: "Luis", description: "", voice: "" }]
+            : proposal.characters,
+          scenes: Array.from({ length: count }, (_, i) => ({
+            start: cursor + i,
+            end: cursor + i,
+            title: `Momento ${i}`,
+            visual: "Acción visual",
+            speaker: "",
+          })),
+        },
+        count,
+      );
+    }
+    expect(story.blocks.map((b) => b.text).join("")).toBe(script);
+    expect(story.mode).toBe("spoken");
+    expect(story.style).toBe("cartoon");
+    expect(story.characters.map((c) => c.name)).toEqual(["Ana", "Luis"]);
+    expect(story.references).toHaveLength(1);
+  });
+  it("rejects missing, reordered, duplicated and incomplete ranges without changing saved script", () => {
+    const story = newStoryProposal(
+      "Uno dos tres cuatro cinco seis siete ocho nueve diez once doce. Otro momento para seguir.",
+    );
+    const count = story.planning!.units.length;
+    const scene = {
+      start: 0,
+      end: count - 1,
+      title: "Una idea",
+      visual: "Un dibujo",
+      speaker: "",
+    };
+    expect(() =>
+      applyProposalBatch(
+        story,
+        { ...proposal, scenes: [{ ...scene, start: 1 }] },
+        count,
+      ),
+    ).toThrow("omitió");
+    expect(() =>
+      applyProposalBatch(story, { ...proposal, scenes: [scene, scene] }, count),
+    ).toThrow("omitió");
+    expect(() =>
+      applyProposalBatch(
+        story,
+        { ...proposal, scenes: [{ ...scene, end: count - 2 }] },
+        count,
+      ),
+    ).toThrow("cubre");
+    expect(story.blocks).toHaveLength(0);
+  });
+  it("saves review edits with conflict protection, replaces linked references and clears deleted images", async () => {
+    const project = await db.createProject("Propuesta", [], DEFAULT_VIDEO);
+    let story = newStoryProposal("Un guion breve.");
+    story = applyProposalBatch(
+      story,
+      {
+        ...proposal,
+        scenes: [
+          {
+            start: 0,
+            end: 0,
+            title: "Inicio",
+            visual: "Una planta",
+            speaker: "",
+          },
+        ],
+      },
+      1,
+    );
+    story.phase = "review";
+    await db.createStory(project.id, story);
+    const saved = await db.saveStoryDraft(project.id, story);
+    await expect(db.saveStoryDraft(project.id, story)).rejects.toThrow(
+      "otra vista",
+    );
+    await db.saveStoryReference(project.id, saved.references![0].id, {
+      id: "ref-test",
+      type: "CHARACTER",
+      data_url: "data:image/png;base64,YQ==",
+      file_name: "Ana.png",
+      is_global: false,
+      project_ids: [project.id],
+      created_at: "today",
+    });
+    let work = await db.readWorkspace();
+    expect(
+      work.projects.find((p) => p.id === project.id)?.story?.characters[0]
+        .referenceId,
+    ).toBe("ref-test");
+    await db.deleteAsset("ref-test");
+    work = await db.readWorkspace();
+    expect(
+      work.projects.find((p) => p.id === project.id)?.story?.references?.[0]
+        .assetId,
+    ).toBeUndefined();
+    await db.deleteProject(project.id);
   });
 });

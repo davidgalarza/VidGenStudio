@@ -12,7 +12,7 @@ El proyecto abre en **Clips del proyecto**. Usa **Nuevo clip** o abre uno existe
 
 ## Historias desde un guion
 
-Pulsa **Historia** dentro del proyecto para crear escenas desde un guion completo. Elige personajes hablando o una voz en off de ElevenLabs, prepara el plan, revisa cada parte y genera los vídeos en segundo plano. Las escenas se añaden al montaje; puedes regenerar una imagen sin rehacer la voz y descargar los materiales para tu editor local. Consulta la [guía de Historia](story.md) para voces, estilos, duración y límites.
+Pulsa **Historia** dentro del proyecto para crear escenas desde un guion completo. Gemini propone narración, estilo, reparto y referencias de Nano Banana. Revisa y edita el plan; después pulsa **Producir historia** para crear la voz con Gemini TTS y generar los vídeos en segundo plano. Todo usa la misma clave de Google. Las escenas se añaden al montaje; puedes regenerar una imagen sin rehacer la voz y descargar los materiales para tu editor local. Consulta la [guía de Historia](story.md) para voces, estilos, duración y límites.
 
 ## Descargas y calidad
 

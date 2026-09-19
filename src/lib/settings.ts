@@ -24,16 +24,3 @@ export function getDefaults(): VideoSettings {
 export function saveDefaults(settings: VideoSettings): void {
   localStorage.setItem("vidgen_defaults", JSON.stringify(settings));
 }
-
-const ELEVEN_KEY = "vidgen_elevenlabs_key";
-export function getElevenLabsKey(): string {
-  try {
-    return localStorage.getItem(ELEVEN_KEY) || "";
-  } catch {
-    return "";
-  }
-}
-export function setElevenLabsKey(key: string): void {
-  if (key.trim()) localStorage.setItem(ELEVEN_KEY, key.trim());
-  else localStorage.removeItem(ELEVEN_KEY);
-}

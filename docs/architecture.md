@@ -12,7 +12,8 @@ flowchart LR
   Workspace --> DB[(IndexedDB)]
   Workspace --> Google[API de Google]
   Workspace --> Story[Preparación de Historia]
-  Story --> ElevenLabs[Voz con tiempos]
+  Story --> GeminiTTS[Voz PCM y duración real]
+  Story --> NanoBanana[Referencias visuales]
   Story --> Google
   Story --> DB
   UI --> Settings[localStorage: clave y ajustes]
@@ -56,7 +57,7 @@ IndexedDB conserva el nombre `vid-gen-studio`, versión de esquema 2, y los alma
 
 ## Preparación de historias
 
-`src/lib/story.ts` segmenta texto, calcula rangos de voz y construye prompts; `storyService.ts` prepara bloques y planes recuperables, y `elevenlabs.ts` encapsula la voz. `src/ui/StoryEditor.tsx` contiene el guion y el guion gráfico. El controlador mantiene la preparación fuera de la vista, con bloqueo entre pestañas y pausa tras la petición actual. La cola existente genera las escenas en su propio registro y añade versiones. Más detalles en [Historia](story.md).
+`src/lib/story.ts` segmenta texto y construye prompts; `storyPlanner.ts` pide propuestas estructuradas y valida la cobertura literal del guion. `storyService.ts` guarda el avance de planificación, referencias y producción; `geminiSpeech.ts` encapsula Gemini TTS, convierte PCM en WAV y detecta pausas acústicas. El proyecto pasa por planificación, revisión, producción y preparación completa; esta última indica que los vídeos pueden estar todavía en cola. Las revisiones se guardan con control de versión. No se sintetizan tiempos por palabra. `src/ui/StoryEditor.tsx` contiene el guion y el guion gráfico. El controlador mantiene la preparación fuera de la vista, con bloqueo entre pestañas y pausa tras la petición actual. La cola existente genera las escenas en su propio registro y añade versiones. Más detalles en [Historia](story.md).
 
 ## Ciclo de generación
 

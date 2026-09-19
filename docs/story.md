@@ -1,55 +1,68 @@
 # Modo Historia
 
-[Documentación](README.md) · [Guía de uso](usage.md)
+[Documentación](README.md) · [Uso general](usage.md)
 
-Historia convierte un guion completo en escenas de un proyecto y las añade al montaje. Está disponible desde **Historia**, dentro de cualquier proyecto. Crear un proyecto sigue sin añadir clips automáticamente.
+Historia convierte un guion en un proyecto audiovisual editable. Utiliza la misma clave de Google para Gemini, Gemini TTS, Nano Banana y el modelo de vídeo. Crear un proyecto sigue sin añadir clips automáticamente.
 
-## Elegir cómo contarla
+## Del guion a la producción
 
-- **Voz en off:** ElevenLabs narra el texto y Google genera las imágenes que lo acompañan. Usa una voz y configuración constantes; las peticiones de audio incluyen contexto anterior y posterior para favorecer la continuidad.
-- **Personajes hablando:** Omni o Veo generan tanto la imagen como el diálogo. Escribe una descripción visual y de voz para cada personaje. Para varios, usa `Ana: diálogo` y `Luis: diálogo` en líneas distintas; una línea sin nombre continúa con el personaje anterior. Cada toma tiene un hablante.
+1. Abre **Historia** dentro de un proyecto y pega el **Guion completo**. Puedes dejar que Gemini decida la narración y el estilo, o abrir **Dar indicaciones** para orientar la propuesta.
+2. Pulsa **Crear propuesta**. Gemini organiza las escenas, detecta personajes, propone voces y describe qué se verá. Por defecto, Nano Banana genera también imágenes de referencia; desmarca esa opción si prefieres elegirlas después. Esta etapa utiliza texto e imágenes, todavía no genera voz ni vídeo.
+3. Revisa la propuesta. En **Escenas** puedes editar títulos, texto e imagen, dividir, ordenar, quitar o añadir momentos y elegir sus referencias. **Personajes y referencias** reúne las apariencias, descripciones de voz e imágenes reutilizables. **Voz y estilo** permite cambiar narración, voz de Gemini, dirección creativa, estilo, formato y modelo.
+4. Pulsa **Producir historia** cuando el plan esté listo. Se guardan los cambios, se prepara la narración y se añaden los vídeos a la cola en segundo plano. El audio real determina cuántos clips necesita cada escena.
+5. Revisa las tomas y abre el montaje para recortar, mover, dividir o quitar partes. Cada vídeo se puede regenerar conservando su narración. Las tomas anteriores siguen disponibles.
 
-Los estilos disponibles son realista, cinematográfico, animación 2D, animación 3D, explicativo e infografía animada. **Dirección creativa** añade ambiente, época, composición o el enfoque didáctico. Los estilos explicativos solicitan ejemplos concretos y relaciones de causa y efecto; no certifican exactitud factual ni garantizan texto legible dentro de una imagen generada.
+El guion y las indicaciones iniciales se conservan al salir a Ajustes o recargar. Si otra vista cambia el proyecto mientras tienes ediciones pendientes, puedes recuperar tu borrador o usar la versión guardada.
 
-Puedes elegir referencias visuales para los personajes desde la biblioteca o subirlas en el selector. Omni recibe hasta tres imágenes de guía; Veo utiliza la imagen del hablante como fotograma inicial. Las descripciones y voces de todos los personajes se repiten en los prompts para favorecer la continuidad.
+El borrador de revisión sobrevive a una recarga en la misma pestaña; **Guardar cambios** lo guarda en el proyecto. Producir también lo guarda. El guion original permanece disponible en los materiales, aunque edites o reordenes el texto de las escenas.
 
-## Preparar y generar
+## Dos formas de narrar
 
-1. Pega el **Guion completo**, elige el modo y el estilo. En voz en off, añade tu clave de ElevenLabs y pulsa **Cargar mis voces**, o introduce un Voice ID disponible para tu cuenta. También puedes guardar esa clave en Ajustes.
-2. Pulsa **Preparar historia**. Esto utiliza Gemini para el plan visual y, en voz en off, ElevenLabs para la narración. Aún no solicita los vídeos.
-3. Revisa cada fragmento, escucha la voz y ajusta **Lo que se verá**. **Generar vídeos** envía las escenas pendientes a la cola existente. También puedes generar una sola escena.
-4. Abre el montaje para previsualizar imagen y voz juntas, ordenar, dividir, recortar o quitar tomas, y exportar el MP4.
+- **Voz en off:** Gemini TTS lee el texto; los vídeos ilustran su significado. La misma voz y las mismas indicaciones se reutilizan en todas las escenas. Hay 30 voces seleccionables y dirección de tono, acento y ritmo mediante texto. El montaje silencia el sonido original del vídeo y añade la narración.
+- **Personajes hablando:** el modelo de vídeo genera imagen, diálogo y sonido. Gemini propone un reparto con apariencia y descripción de voz constantes; las referencias ayudan a mantener la identidad. Puedes usar etiquetas como `Ana: ...` y `Luis: ...`; no se envían como palabras que deban pronunciarse.
 
-La preparación y la cola siguen funcionando mientras navegas por la aplicación, con la pestaña abierta. **Pausar preparación** termina y guarda la petición actual antes de parar. Tras recargar o un fallo, **Continuar preparación** reutiliza los audios y escenas ya guardados. Una respuesta perdida antes de guardarse puede haber consumido saldo; no hay reintento automático de peticiones facturables.
+La voz generada dentro del vídeo no ofrece un identificador de voz fijo ni garantiza repetir exactamente cada palabra. Revisa el diálogo, la pronunciación y la continuidad. Para controlar mejor la voz entre tomas, usa Gemini TTS en voz en off. Tampoco se realiza una transcripción automática para verificar el texto pronunciado por TTS.
 
-## Guiones largos y sincronización
+## Planificación y referencias
 
-El guion no se resume con IA. En voz en off se divide en bloques de hasta 1.200 caracteres, conservando el texto, y se envía a ElevenLabs con `eleven_multilingual_v2`. El resultado de cada bloque se guarda antes de medirlo y planificar las imágenes. Los tiempos por carácter y la duración real del audio determinan los cortes, procurando límites entre palabras. Todos los intervalos son contiguos y cubren también las pausas.
+El planificador recibe fragmentos numerados y devuelve rangos consecutivos, títulos, acciones visuales y una configuración. El código conserva el texto original y rechaza respuestas con omisiones, duplicaciones o cambios de orden. Procesa guiones largos por lotes y guarda el avance; nuevos personajes pueden aparecer en lotes posteriores. No hay un límite fijo de duración total impuesto por la interfaz; siguen aplicando las cuotas de la cuenta, el almacenamiento y el número de solicitudes.
 
-Cada escena visual respeta el máximo del modelo: 10 segundos en Omni o 8 en Veo. La duración solicitada se redondea a una opción admitida y el montaje usa solo el rango necesario para su narración. Si el vídeo devuelto es más corto, se mantiene su último fotograma hasta terminar ese fragmento de voz; se hace tanto en la previsualización como en la exportación.
+Nano Banana crea referencias compartidas de personajes, objetos o estilo. Las referencias de estilo se generan primero y pueden acompañar a las demás imágenes. Puedes editar su descripción, regenerar una imagen, elegir una existente o subir una propia con el selector. Cambiar la descripción no regenera una imagen automáticamente. Las escenas usan referencias automáticas; también puedes fijar una selección por escena. Omni admite hasta tres; Veo utiliza una como fotograma inicial.
 
-En personajes hablando, la división usa una estimación conservadora de palabras y caracteres por segundo. El prompt pide el texto literal, una sola voz y tiempo para acabar la frase. **No hay alineación forzada ni comprobación automática de lo que realmente dice el vídeo**: hay que revisar pronunciación, final de frase y continuidad antes de exportar. Un modelo puede omitir palabras o variar la voz. Para narración estable y tiempos medidos, usa voz en off.
+Los estilos incluyen realista, cinematográfico, cartoon, animación 3D, explicativo, e infografía. Son instrucciones visuales para el modelo, no plantillas de contenido ni garantías de apariencia exacta.
 
-No hay un límite artificial de escenas por historia. El procesamiento es secuencial y las historias extensas requieren cuota, almacenamiento y tiempo. La exportación sigue sujeta a los recursos de FFmpeg en el navegador; para trabajos largos puedes descargar los materiales y montar fuera.
+## Duración y sincronización
 
-## Editar sin rehacerlo todo
+Gemini TTS devuelve PCM que la aplicación envuelve en WAV mono de 16 bits. La duración se calcula a partir de las muestras reales. Esta integración no recibe tiempos por palabra y no los inventa.
 
-- **Regenerar imagen** cambia esa toma, conserva la narración y guarda el vídeo anterior. **Toma utilizada** permite volver a una versión anterior.
-- En personajes hablando se puede editar el diálogo de una escena si cabe en su duración máxima, guardar y regenerar. El guion original queda como referencia.
-- La voz en off preparada no se reescribe al editar un prompt visual. Para partir de otro guion o cambiar la voz global, crea otra historia en un proyecto nuevo. Actualmente hay una historia por proyecto.
-- Reordenar una toma mueve su fragmento de voz; recortar o dividir recorta/divide también ese audio. Quitar una toma del montaje quita ese fragmento de la exportación, sin borrar la fuente.
-- Eliminar una escena la mueve a la papelera de Clips; se puede restaurar. No se vuelve a generar automáticamente para rellenar una eliminación intencional.
+Si una narración supera el límite del vídeo, se distribuye entre intervalos contiguos, buscando pausas acústicas; si no hay una pausa dentro del límite, se cambia la imagen sin eliminar audio. Cada tramo muestra el texto de la escena completa como contexto, no como una transcripción temporizada de ese tramo. El montaje cubre el audio completo, incluidas sus pausas. Si el vídeo es más corto, mantiene el último fotograma hasta completar la narración.
 
-El montaje de Historia sigue la toma activa de sus escenas para que una regeneración se vea en su lugar. Los montajes normales conservan sus versiones fijadas. Los clips originales de la biblioteca se descargan con su audio original: **Exportar vídeo** desde el montaje es la opción que incorpora la voz en off.
+El diálogo dentro del vídeo se divide conservadoramente según palabras y caracteres. Omni solicita de 3 a 10 segundos; Veo, 4, 6 u 8 segundos (8 en 1080p). La estimación de habla no garantiza que el modelo pronuncie todo: cada toma necesita revisión.
 
-**Descargar voz y guion** guarda los bloques MP3, `guion.txt` y `escenas.json` con el texto, la descripción visual y los rangos de audio de cada escena. Sirve para continuar en un editor local; no es un formato de proyecto reimportable ni una EDL. Para personajes hablados se descarga el guion y el plan.
+Para escenas editadas manualmente se admiten hasta 3.000 caracteres por bloque de voz. Usa **Dividir** para repartir una escena mayor; esto no limita la longitud total del guion.
+
+## Pausa, errores y recuperación
+
+Mantén la pestaña abierta durante las solicitudes. Puedes cambiar de vista y seguir trabajando; **Pausar** guarda el resultado de la petición actual y detiene las siguientes. Si recargas después, **Continuar propuesta** o **Continuar producción** reutiliza planes, referencias y narraciones ya guardados. Si falla la primera narración, vuelves a la propuesta editable. En producciones parciales, **Editar partes pendientes** permite corregir el texto y la imagen de las partes aún no preparadas; continuar guarda esos cambios y conserva las escenas terminadas. Un audio guardado de Gemini solo se reutiliza si coinciden texto, voz e indicaciones.
+
+Los errores de imágenes permiten **Revisar sin más imágenes** y completarlas después.
+
+Cada solicitud puede consumir cuota. No se repiten automáticamente solicitudes de pago. Una interrupción antes de guardar una respuesta puede dejar incierto si Google la procesó; continuar puede volver a solicitar esa parte. El bloqueo entre pestañas evita dos preparaciones simultáneas donde el navegador admite Web Locks.
+
+Las claves se configuran una sola vez en Ajustes. El acceso a TTS, imágenes, texto y vídeo depende de los modelos habilitados y de la cuota de tu cuenta; comprobar la conexión no garantiza acceso a todos.
+
+## Montaje y materiales
+
+El montaje sigue la toma activa de cada escena de Historia. Los montajes normales conservan sus versiones fijadas. **Exportar vídeo** incorpora la voz en off: descargar un clip original por separado conserva el archivo de vídeo recibido del modelo.
+
+**Voz y guion** descarga WAV, el guion original y un manifiesto JSON con texto de escena, descripción visual y rangos de audio para continuar en otro editor. Las narraciones antiguas en MP3 siguen siendo reproducibles y exportables. No es una copia reimportable del proyecto.
 
 ## Contratos y almacenamiento
 
-- Gemini: `POST /v1beta/interactions`, modelo `gemini-3.8-flash`, respuesta JSON estructurada. El plan se solicita por grupos de ocho escenas; solo puede proponer títulos y acciones visuales para sus IDs. La aplicación valida que no falten ni sobren escenas. Véase [salidas estructuradas de Gemini](https://ai.google.dev/gemini-api/docs/structured-output).
-- ElevenLabs: `GET /v1/voices` para cargar voces y `POST /v1/text-to-speech/{voice_id}/with-timestamps?output_format=mp3_44100_128`. La autenticación usa `xi-api-key`, solo en el origen de ElevenLabs. El audio se recibe en base64 con `alignment` sobre el texto original. Véase [voz con tiempos de ElevenLabs](https://elevenlabs.io/docs/api-reference/text-to-speech/convert-with-timestamps).
-- El modelo y los ajustes de voz son los mismos para todos los bloques; se envían `previous_text`, `next_text` y hasta tres `previous_request_ids` cuando se dispone de ellos.
-- IndexedDB, esquema 2: `Project.story` guarda configuración y bloques; `Scene.story` guarda texto, plan y rango de audio; el almacén `narrations` guarda cada MP3 una sola vez. Los proyectos anteriores se conservan al migrar.
-- La clave de ElevenLabs se guarda aparte en `localStorage`, como `vidgen_elevenlabs_key`. No se incluye en manifiestos ni en registros del proyecto. Consulta [privacidad](privacy.md).
+- Gemini LLM: `gemini-3.8-flash`, `POST /v1beta/interactions`, JSON estructurado.
+- Gemini TTS: `gemini-3.1-flash-tts-preview`, misma ruta, `response_format.type=audio` y `generation_config.speech_config=[{voice}]`. PCM mono a 24 kHz por defecto. [Documentación de voz](https://ai.google.dev/gemini-api/docs/speech-generation).
+- Nano Banana: `gemini-3.1-flash-image`, Interactions con `response_format.type=image`, `aspect_ratio=16:9` e `image_size=1K`. Puede recibir imágenes de estilo. [Documentación de imágenes](https://ai.google.dev/gemini-api/docs/image-generation).
+- Todas las solicitudes usan `x-goog-api-key` exclusivamente en el origen de Google. No se necesita ElevenLabs; al iniciar se elimina su antigua clave local, conservando los audios de proyectos previos.
+- IndexedDB, esquema 2: `Project.story` contiene fase, revisión, propuesta, reparto y referencias; `Scene.story` contiene el plan y rango de audio; `narrations` guarda cada audio una sola vez. El guardado de revisión comprueba versiones para evitar sobrescribir cambios de otra pestaña.
 
-Las pruebas automatizadas simulan ambos proveedores y usan audio sintético. Verifican cobertura del guion, tiempos, persistencia, recuperación sin repetir audio, regeneración por escena y exportación local con narración audible. No certifican acceso real, voces disponibles ni calidad generativa de una cuenta.
+Consulta [integración con Google](google-api.md), [privacidad](privacy.md) y [desarrollo](development.md). Las pruebas usan respuestas simuladas y tonos sintéticos; no validan por sí solas el acceso de una cuenta a estos modelos.

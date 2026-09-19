@@ -58,6 +58,6 @@ Usa una [incidencia del repositorio](https://github.com/davidgalarza/VidGenStudi
 
 ## Historia: preparación o voz
 
-**Continuar preparación** reutiliza los bloques de audio y planes ya guardados. Si aparece un error de ElevenLabs, comprueba esa clave, la voz elegida y la cuota de esa cuenta; la clave de Google no sustituye la de ElevenLabs. Un fallo después de enviar una solicitud puede haber consumido saldo y no se reintenta automáticamente.
+**Continuar propuesta** y **Continuar producción** reutilizan los planes, imágenes y audios ya guardados. Si falla Gemini TTS o Nano Banana, comprueba el acceso al modelo y la cuota de tu cuenta de Google; se utiliza la misma clave de Ajustes. Si solo fallan las imágenes, puedes **Revisar sin más imágenes** y completarlas después. Un fallo después de enviar una solicitud puede haber consumido saldo y no se reintenta automáticamente.
 
 Si la actualización del almacenamiento pide cerrar otras pestañas, cierra las pestañas antiguas de Vidgen Studio. La migración añade el almacén de narraciones y conserva proyectos, vídeos y referencias. Consulta [Modo Historia](story.md) para sincronización, materiales y limitaciones del diálogo generado.

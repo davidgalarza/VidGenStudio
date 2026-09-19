@@ -10,7 +10,7 @@ Este proyecto es un fork independiente de [Video Orchestrator, de Rajjit Laishra
 
 ## Qué incluye
 
-- **Modo Historia:** pega un guion, elige personajes hablando o voz en off de ElevenLabs y genera escenas editables con distintos estilos. [Cómo funciona](docs/story.md).
+- **Modo Historia:** pega un guion y Gemini propone escenas, personajes, voces y referencias con Nano Banana. Revisa el plan y produce vídeos con diálogo o voz en off de Gemini TTS, usando una sola clave de Google. [Cómo funciona](docs/story.md).
 - **Proyectos vacíos:** crea clips cuando los necesites, sin plantillas ni tomas automáticas.
 - **Generación con Google:** integración con Gemini Omni 1.1 Flash y Veo 3.1, referencias visuales y generación de imágenes de referencia.
 - **Cola persistente:** solicita de 1 a 20 clips independientes, sigue preparando otros y recupera operaciones tras recargar.
@@ -73,7 +73,7 @@ npm run lint
 npm run build
 ```
 
-Las pruebas de navegador usan respuestas de Google y ElevenLabs simuladas y vídeos sintéticos; la exportación ejecuta FFmpeg real. Para ejecutarlas, sigue [desarrollo y pruebas](docs/development.md). No requieren claves reales.
+Las pruebas de navegador usan respuestas de Google simuladas y vídeos sintéticos; la exportación ejecuta FFmpeg real. Para ejecutarlas, sigue [desarrollo y pruebas](docs/development.md). No requieren claves reales.
 
 ## Licencia y créditos
 

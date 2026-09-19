@@ -6,12 +6,13 @@ Esta guía describe lo que **implementa el repositorio**, no una garantía de di
 
 ## Modelos y límites implementados
 
-| Uso                   | Identificador enviado      | Opciones admitidas por la aplicación                                               |
-| --------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
-| Vídeo Omni            | `gemini-omni-1.1-flash`    | Generación de 3–10 segundos, enteros; 9:16/16:9; 360p, 720p, 1080p y 4k            |
-| Vídeo Veo             | `veo-3.1-generate-preview` | 4, 6 u 8 segundos en 720p; 8 segundos en 1080p; 9:16/16:9                          |
-| Plan de Historia      | `gemini-3.8-flash`         | JSON estructurado con títulos y acciones visuales; el guion se conserva localmente |
-| Referencias generadas | `gemini-3.1-flash-image`   | Solicitud de imagen y texto con proporción de imagen                               |
+| Uso                   | Identificador enviado          | Opciones admitidas por la aplicación                                                    |
+| --------------------- | ------------------------------ | --------------------------------------------------------------------------------------- |
+| Vídeo Omni            | `gemini-omni-1.1-flash`        | Generación de 3–10 segundos, enteros; 9:16/16:9; 360p, 720p, 1080p y 4k                 |
+| Vídeo Veo             | `veo-3.1-generate-preview`     | 4, 6 u 8 segundos en 720p; 8 segundos en 1080p; 9:16/16:9                               |
+| Plan de Historia      | `gemini-3.8-flash`             | JSON estructurado: escenas, reparto, voz, estilo y referencias; conserva el guion local |
+| Voz de Historia       | `gemini-3.1-flash-tts-preview` | PCM mono, 30 voces, dirección de voz por texto; se guarda como WAV                      |
+| Referencias generadas | `gemini-3.1-flash-image`       | Nano Banana; referencias de Historia con Interactions, 16:9 y 1K                        |
 
 Las guías de personaje/objeto/estilo y la edición/extensión de vídeo utilizan Omni en esta interfaz. Veo admite fotogramas inicial y final; un final requiere un inicial. Omni también requiere ese orden y la UI limita las guías visuales a tres.
 
@@ -24,6 +25,8 @@ Omni usa `/interactions`, `background: true`, `store: true` y `response_format` 
 Las generaciones Omni en 360p/720p omiten la entrega por URI. Las de 1080p/4k y las ediciones/extensiones solicitan `delivery: "uri"`. El lector acepta distintas formas de salida, incluyendo contenido de vídeo en los pasos de la interacción, base64 y URI. Veo usa operaciones de generación de larga duración. Consulta el código y las pruebas de contrato al modificar estas rutas.
 
 Antes de enviar referencias, `prepareReferenceImages` crea copias JPEG RGB, reduce la dimensión máxima a 2048 px, rellena transparencias con blanco y verifica un máximo de 4 MB por copia. No modifica las imágenes originales ni la captura persistida de la solicitud.
+
+Para Historia, la propuesta, las referencias y la voz usan Interactions con la misma clave. Los contratos y las diferencias entre preparación y producción están en [Modo Historia](story.md). TTS no proporciona alineación de palabras en esta integración; el montaje usa duración medida y pausas acústicas.
 
 ## Seguimiento y recuperación
 
