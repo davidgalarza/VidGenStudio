@@ -9,86 +9,12 @@ import {
   type StoryBlock,
   type StoryConfig,
   type StoryScene,
-  type StoryStyle,
   type Narration,
   type VideoSettings,
 } from "../types";
 
-export const storyStyles: { id: StoryStyle; label: string; prompt: string }[] =
-  [
-    {
-      id: "realistic",
-      label: "Realista",
-      prompt:
-        "Photorealistic, natural lighting, believable environments and movement.",
-    },
-    {
-      id: "cinematic",
-      label: "Cinematográfico",
-      prompt:
-        "Cinematic photography, deliberate composition, expressive lighting, consistent color grading.",
-    },
-    {
-      id: "cartoon",
-      label: "Animación 2D",
-      prompt:
-        "Hand-drawn 2D animation, expressive characters, clean silhouettes, consistent linework and color palette.",
-    },
-    {
-      id: "3d",
-      label: "Animación 3D",
-      prompt:
-        "Stylized 3D animation, appealing shapes, tactile materials, consistent character design.",
-    },
-    {
-      id: "explainer",
-      label: "Explicativo",
-      prompt:
-        "Didactic visual explanation. Demonstrate the actual concept with clear concrete examples, progressive reveals, cause and effect. One idea at a time. Avoid generic stock footage and decorative unrelated imagery.",
-    },
-    {
-      id: "infographic",
-      label: "Infografía animada",
-      prompt:
-        "Animated diagrams and visual metaphors, simple high-contrast shapes, legible hierarchy. Show relationships and processes progressively. Avoid dense text, invented statistics and illegible labels.",
-    },
-    {
-      id: "anime",
-      label: "Anime",
-      prompt:
-        "Japanese-inspired 2D animation, expressive facial acting, cinematic cel shading and painted backgrounds. Original character designs.",
-    },
-    {
-      id: "stopmotion",
-      label: "Stop motion",
-      prompt:
-        "Handcrafted stop-motion clay animation, tactile miniatures, visible material textures and deliberate expressive movement.",
-    },
-    {
-      id: "watercolor",
-      label: "Acuarela",
-      prompt:
-        "Animated watercolor illustration, translucent pigment, textured paper and fluid, gentle movement. Keep faces and action readable.",
-    },
-    {
-      id: "papercut",
-      label: "Papel recortado",
-      prompt:
-        "Layered paper-cut animation, tactile cut edges, dimensional paper scenery, coherent silhouettes and parallax.",
-    },
-    {
-      id: "pixel",
-      label: "Pixel art",
-      prompt:
-        "Crisp intentional pixel art animation, limited coherent palette, readable pixel characters and scenery, no smoothing.",
-    },
-    {
-      id: "comic",
-      label: "Novela gráfica",
-      prompt:
-        "Animated graphic novel, expressive ink outlines, bold shadow shapes, intentional limited colors and dramatic composition. No speech bubbles or printed words.",
-    },
-  ];
+export { storyStyles } from "./storyStyles";
+import { storyStylePrompt } from "./storyStyles";
 export const maxStoryDuration = (settings: VideoSettings) =>
   settings.model === OMNI_MODEL ? 10 : 8;
 export function storyVideoDuration(seconds: number, settings: VideoSettings) {
@@ -350,7 +276,7 @@ export function storyPrompt(
     scene.locationName,
   ),
 ) {
-  const style = storyStyles.find((s) => s.id === story.style)!.prompt;
+  const style = storyStylePrompt(story);
   const relevant = new Set(
     scene.participants || scene.dialogue
       ? [

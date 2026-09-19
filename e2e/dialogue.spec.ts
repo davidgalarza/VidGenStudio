@@ -242,7 +242,7 @@ test("free dialogue becomes editable shared scenes, reusable sets and individual
   const gallery = page.getByRole("dialog", {
     name: "Elige el estilo de tu historia",
   });
-  await expect(gallery.locator(".story-style-option")).toHaveCount(12);
+  await expect(gallery.locator(".story-style-option")).toHaveCount(20);
   await capture(page, "dialogue-styles");
   await gallery
     .getByRole("button", {

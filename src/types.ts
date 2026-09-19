@@ -56,7 +56,59 @@ export type StoryStyle =
   | "watercolor"
   | "papercut"
   | "pixel"
-  | "comic";
+  | "comic"
+  | "broll"
+  | "nature"
+  | "macro"
+  | "slides"
+  | "whiteboard"
+  | "motiongraphics"
+  | "isometric"
+  | "blueprint"
+  | "cutaway"
+  | "overlays"
+  | "collage"
+  | "timeline"
+  | "documentary"
+  | "studio"
+  | "noir"
+  | "retro"
+  | "cel"
+  | "clay"
+  | "puppet"
+  | "storybook"
+  | "rotoscope"
+  | "lowpoly";
+export interface StyleParameters {
+  pace: "calm" | "balanced" | "dynamic";
+  camera: "locked" | "gentle" | "tracking" | "handheld";
+  lighting: "natural" | "soft" | "dramatic" | "flat";
+  palette: "original" | "warm" | "cool" | "pastel" | "vivid" | "mono";
+  detail: "minimal" | "balanced" | "rich";
+  explanation: "none" | "visual" | "diagrams" | "overlays";
+  acting: "natural" | "subtle" | "expressive" | "theatrical";
+}
+/** Self-contained art direction; library changes never rewrite existing projects. */
+export interface StoryStyleProfile {
+  presetId?: string;
+  name: string;
+  base: StoryStyle;
+  mode: StoryMode;
+  parameters: StyleParameters;
+  instructions: string;
+  analysis?: string;
+}
+export interface StyleMedia {
+  id: string;
+  name: string;
+  blob: Blob;
+}
+export interface SavedStoryStyle {
+  id: string;
+  profile: StoryStyleProfile;
+  media: StyleMedia[];
+  updatedAt: string;
+}
 export type StoryShotMode = "auto" | "shared" | "alternating";
 export interface DialogueTurn {
   id: string;
@@ -84,6 +136,7 @@ export interface StoryConfig {
   script: string;
   mode: StoryMode;
   style: StoryStyle;
+  styleProfile?: StoryStyleProfile;
   direction: string;
   characters: StoryCharacter[];
   voiceId: string;

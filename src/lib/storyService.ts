@@ -14,9 +14,9 @@ import {
   alignNarration,
   maxStoryDuration,
   storyPrompt,
-  storyStyles,
   storyVideoDuration,
 } from "./story";
+import { storyStylePrompt } from "./storyStyles";
 import {
   blobDataUrl,
   generateStoryReference,
@@ -229,7 +229,7 @@ export async function prepareStory(
     );
     const plan = await planStoryVisuals(
       getApiKey(),
-      `Planifica acciones visuales en español. Mantén este estilo: ${story.style}. Devuelve una escena por ID. SCENES: ${JSON.stringify(batch.map((s) => ({ id: s.id, text: s.story!.text })))}`,
+      `Planifica acciones visuales en español. Mantén este estilo: ${storyStylePrompt(story)}. Devuelve una escena por ID. SCENES: ${JSON.stringify(batch.map((s) => ({ id: s.id, text: s.story!.text })))}`,
       batch.map((s) => s.id),
     );
     for (const scene of batch) {
@@ -275,7 +275,7 @@ async function prepareReferences(
         .slice(0, 2) || [];
     const image = await generateStoryReference(
       getApiKey(),
-      `${storyStyles.find((s) => s.id === story.style)?.prompt}\nArt direction: ${story.direction}\n${current.prompt}\n${current.locationName ? `EMPTY SET for recurring location ${current.locationName}. Establish its architecture, materials, furniture placement, lighting and camera geography. No people. Show a clear wide view that can be reused from several camera angles.` : "Single reusable visual reference."} No lettering, watermarks, labels, or collage.`,
+      `${storyStylePrompt(story)}\nFor this still reference image translate motion and performance direction into appearance and framing.\nArt direction: ${story.direction}\n${current.prompt}\n${current.locationName ? `EMPTY SET for recurring location ${current.locationName}. Establish its architecture, materials, furniture placement, lighting and camera geography. No people. Show a clear wide view that can be reused from several camera angles.` : "Single reusable visual reference."} No lettering, watermarks, labels, or multi-view model sheets.`,
       guides,
     );
     const asset: Asset = {

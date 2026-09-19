@@ -463,6 +463,7 @@ test("spoken story infers characters, keeps labels out of dialogue and generates
 }) => {
   const calls = await providers(page, { spoken: true });
   await init(page);
+  await page.getByLabel("Preferencia de narración").selectOption("spoken");
   const script =
     "Ana: Hoy vamos a descubrir cómo cambia la luz durante el día y por qué ese cambio afecta a todas las plantas del jardín.\nLuis: Yo observaré sus hojas con mucha atención.";
   await page.getByLabel("Guion completo", { exact: true }).fill(script);

@@ -17,6 +17,8 @@
 | Revisión de diálogo          | Memoria de la vista                               | Transcripción y observaciones temporales; no se guardan en el proyecto ni se exportan |
 | Archivos descargados         | Carpeta de descargas que elijas                   | Quedan fuera del control de la aplicación                                             |
 
+**Mis estilos** usa además IndexedDB `vidgen-style-library`, almacén `styles`: conserva los perfiles y los Blobs originales de imágenes o vídeos cuando guardas una entrada. El proyecto conserva una copia de la configuración, sin copiar esos archivos.
+
 No hay cuentas ni sincronización entre dispositivos. IndexedDB y localStorage están separados por origen: protocolo, dominio y puerto. Un despliegue de prueba con otra URL no verá los datos del despliegue principal.
 
 El navegador puede restringir o desalojar almacenamiento, especialmente en modo privado o si falta espacio. La aplicación no ofrece una copia completa reimportable del proyecto. Descarga los medios importantes; `clips.json` ayuda a conservar metadatos, pero no restaura una sesión ni el montaje.
@@ -29,7 +31,11 @@ En Historia, Google recibe el contexto del guion y sus fragmentos para proponer 
 
 Al confirmar **Analizar esta toma con Gemini**, se envían el vídeo seleccionado (hasta 14 MB) y las descripciones de apariencia y voz del reparto. Las palabras previstas se comparan localmente con la transcripción devuelta; no se incluyen en la solicitud de transcripción. Esta acción consume cuota de análisis de vídeo y no se ejecuta automáticamente al generar. Cerrar la revisión interrumpe el seguimiento local, sin garantizar la cancelación del procesamiento remoto o su coste. La transcripción no se guarda en IndexedDB y se pierde al recargar o cambiar de versión.
 
-Los escenarios y sus referencias forman parte de la misma información visual que se envía al generar. Las doce muestras de estilo incluidas en la interfaz son un recurso estático local; elegir un estilo no envía esas imágenes a Google como referencias.
+Los escenarios y sus referencias forman parte de la misma información visual que se envía al generar. Las muestras del catálogo de estilos son recursos estáticos locales; elegir un estilo no envía esas imágenes a Google como referencias.
+
+Subir o arrastrar imágenes y vídeos al editor de un estilo es local. **Analizar con Gemini** envía explícitamente los archivos seleccionados y las instrucciones de análisis a Google, con tu clave y consumo de cuota. Se admiten hasta seis archivos y 14 MiB en total; las imágenes se normalizan en copias para el envío y se vuelve a comprobar el tamaño preparado. Las instrucciones y parámetros obtenidos pueden utilizarse en los prompts de planificación, referencias y vídeo; los archivos de análisis no se adjuntan automáticamente a esas generaciones.
+
+El resultado pendiente no reemplaza los ajustes hasta **Aplicar análisis**. Un error, cancelación o respuesta tardía no modifica el borrador. Cerrar o cancelar interrumpe la espera local, sin garantía de cancelar el procesamiento o coste remoto. **Guardar en Mis estilos** conserva el perfil y los originales en la biblioteca; **Usar estos ajustes** copia solo la configuración al proyecto. Sin guardar la entrada, los archivos cargados son temporales. No hay sincronización ni copia exportable de esta biblioteca.
 
 Google devuelve el resultado directamente o mediante una URI de sus servicios. El alojamiento estático entrega los archivos de la aplicación; su operador puede tener registros de acceso web. El código actual no incorpora un SDK de analítica ni envía los proyectos a un backend propio.
 
@@ -50,5 +56,7 @@ Mover clips a la papelera conserva sus vídeos y permite restaurarlos; no libera
 La clave se puede retirar con **Eliminar clave guardada** en Ajustes; esa acción no está disponible mientras hay una generación activa. Borrar los datos del sitio en el navegador elimina también proyectos, referencias, solicitudes y preferencias. Haz las descargas necesarias antes. Si una clave se expone, revócala en su proveedor; borrarla de un archivo o de la interfaz no la revoca.
 
 La antigua clave `vidgen_elevenlabs_key` se elimina al iniciar la aplicación. No se hacen nuevas solicitudes a ElevenLabs; los audios de proyectos anteriores se conservan.
+
+Eliminar una entrada de **Mis estilos** quita su perfil y sus archivos de esa biblioteca, pero los proyectos conservan la configuración que copiaron. Eliminar un proyecto no elimina sus estilos de la biblioteca. Borrar todos los datos del sitio elimina ambas bases; no elimina archivos que Google ya hubiera recibido durante un análisis.
 
 Consulta [seguridad](../SECURITY.md) para reportar una vulnerabilidad.

@@ -10,32 +10,44 @@ import type {
   StoryStyle,
   StoryReference,
   StoryBlock,
+  StoryStyleProfile,
 } from "../types";
 import { getDefaults } from "./settings";
 import { splitText, storyStyles } from "./story";
 import { geminiVoices, validVoice } from "./geminiSpeech";
 import { storyJSON } from "./google";
 import { parseDialogueSource } from "./storyDialogue";
+import { storyStylePrompt, validStyleProfile } from "./storyStyles";
 
 export function newStoryProposal(
   script: string,
   preferences: {
     mode?: StoryMode;
     style?: StoryStyle;
+    styleProfile?: StoryStyleProfile;
     direction?: string;
     autoReferences?: boolean;
   } = {},
 ): Story {
   if (!script.trim())
     throw new Error("Pega el guion que quieres convertir en una historia.");
+  if (preferences.styleProfile && !validStyleProfile(preferences.styleProfile))
+    throw new Error(
+      "Revisa la configuración del estilo antes de crear la propuesta.",
+    );
+  const mode = preferences.mode || preferences.styleProfile?.mode;
+  const style = preferences.styleProfile?.base || preferences.style;
   return {
     id: crypto.randomUUID(),
     revision: 0,
     phase: "planning",
     script: script.trim(),
     blocks: [],
-    mode: preferences.mode || "voiceover",
-    style: preferences.style || "realistic",
+    mode: mode || "voiceover",
+    style: style || "realistic",
+    styleProfile: preferences.styleProfile
+      ? structuredClone(preferences.styleProfile)
+      : undefined,
     direction: preferences.direction || "",
     characters: [],
     references: [],
@@ -49,8 +61,8 @@ export function newStoryProposal(
         splitText(line, 90, 12),
       ),
       cursor: 0,
-      mode: preferences.mode,
-      style: preferences.style,
+      mode,
+      style,
     },
   };
 }
@@ -445,6 +457,7 @@ export async function proposeNextBatch(key: string, story: Story) {
     "Each spoken turn has action: concise visual blocking while that turn is spoken, including the speaker's gestures and listeners' silent reactions. Coordinate sequential actions without replaying earlier beats. These actions are inferred direction, never additional speech. Empty for voiceover turns.",
     "A speaker name on its own line (for example Ana: followed by a newline) is a heading, not an utterance or a scene. Include its unit with the following spoken words in the same turn and scene. Never create a separate turn or scene for a name alone. A heading changes the speaker of all following unlabelled units, including across batches, until another heading appears.",
     `User preferences (obey when specified): ${JSON.stringify({ mode: plan.mode, style: plan.style, direction: story.direction })}`,
+    `Selected visual treatment: ${storyStylePrompt(story)}. Apply it to every scene's visual staging and every reference image prompt. A scene's visual description must respect these settings. Do not override the user's selected style.`,
     `Existing direction (keep unchanged; include newly discovered characters or reusable references when needed): ${context}`,
     `Available styles: ${storyStyles.map((s) => `${s.id}: ${s.prompt}`).join("\n")}`,
     `Narrator voices: ${geminiVoices.map((v) => `${v.id}: ${v.label}`).join(", ")}`,

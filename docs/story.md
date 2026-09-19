@@ -6,7 +6,7 @@ Historia convierte un guion en un proyecto audiovisual editable. Utiliza la mism
 
 ## Del guion a la producción
 
-1. Pulsa **Nuevo proyecto → Proyecto de historia** y pega en **Guion completo** solo lo que se escuchará. En **Cómo se escucha** elige personajes hablando, voz en off o deja que Gemini lo proponga. El selector de estilo muestra doce muestras visuales. **Dar indicaciones** sigue siendo opcional.
+1. Pulsa **Nuevo proyecto → Proyecto de historia** y pega en **Guion completo** solo lo que se escuchará. En **Cómo se escucha** elige personajes hablando o voz en off; el valor inicial es **Voz en off · Gemini TTS**. El estilo inicial es **Realista** y puedes cambiarlo o personalizarlo antes de crear la propuesta. **Dar indicaciones** sigue siendo opcional.
 2. Pulsa **Crear propuesta**. Gemini organiza escenas narrativas, personajes, voces, lugares, acciones e intervenciones. No necesitas escribir un guion técnico. Por defecto, Nano Banana genera también imágenes de referencia; desmarca esa opción si prefieres elegirlas después. Esta etapa utiliza texto e imágenes, todavía no genera voz ni vídeo.
 3. Revisa la propuesta. En **Escenas** puedes editar títulos, texto e imagen, dividir, unir con la siguiente, ordenar, quitar o añadir momentos y elegir sus referencias. Las conversaciones permiten ajustar quién dice cada parte, su interpretación, las acciones y cómo se filma. **Personajes y referencias** reúne las apariencias, descripciones de voz, escenarios e imágenes reutilizables. **Voz y estilo** permite cambiar narración, voz de Gemini, dirección creativa, estilo, formato y modelo.
 4. Pulsa **Producir historia** cuando el plan esté listo. Se guardan los cambios, se prepara la narración y se añaden los vídeos a la cola en segundo plano. En voz en off, el audio real determina los clips necesarios; con personajes hablando, se usa una estimación conservadora del habla.
@@ -73,7 +73,36 @@ Nano Banana crea referencias compartidas de personajes, escenarios, objetos o es
 
 Las referencias de estilo se generan primero y pueden acompañar a las demás imágenes. Cambiar la descripción no regenera una imagen automáticamente. La selección automática usa los personajes presentes y reserva espacio para el escenario, dentro del límite de tres guías de Omni; también puedes fijar una selección por escena. Con más personajes, no todos tendrán una guía de imagen en cada solicitud: sus descripciones siguen formando parte del prompt. Veo utiliza una referencia como fotograma inicial. Las imágenes y las indicaciones ayudan a la continuidad, pero no garantizan una identidad o escenografía idéntica.
 
-Los doce estilos son realista, cinematográfico, cartoon, animación 3D, explicativo, infografía, anime, stop motion, acuarela, papel recortado, pixel art y cómic. El selector muestra la misma escena interpretada de doce maneras para facilitar la comparación. Son instrucciones visuales para el modelo, no plantillas de contenido ni garantías de apariencia exacta. Las muestras son una imagen ilustrativa generada con IA e incluida en la aplicación; no se envían automáticamente a Google como referencias de tu historia. Consulta su [procedencia](../src/assets/README.md).
+## Elegir y personalizar un estilo
+
+El catálogo contiene **34 estilos distintos**: **24 para voz en off** y **20 para personajes hablando**, con diez estilos comunes a ambos modos. Conserva los doce estilos anteriores en los modos apropiados y añade doce opciones para acompañar narraciones y diez para personajes. No hay una elección automática de estilo en la entrada: la propuesta utiliza la selección visible.
+
+Los estilos comunes son Realista, Cinematográfico, Animación 2D, Animación 3D, Anime, Stop motion, Acuarela, Papel recortado, Pixel art y Novela gráfica. Voz en off añade Explicativo, Infografía animada, B-roll realista, Naturaleza inmersiva, Macro y detalles, Diapositivas visuales, Pizarra animada, Motion graphics, Mundos isométricos, Plano técnico, Cortes y mecanismos 3D, Realista + gráficos, Collage editorial y Procesos paso a paso. Personajes hablando añade Documental cercano, Retrato de estudio, Cine noir, Película analógica, Animación cel clásica, Plastilina, Marionetas, Cuento ilustrado, Rotoscopia y Low poly.
+
+Abre la muestra de **Estilo visual** para buscar por nombre o acabado y filtrar **Realismo**, **Animación**, **Explicación** —esta última en voz en off— o **Mis estilos**. Pulsa una muestra para seleccionarla, **Personalizar** para partir de sus ajustes o **Crear estilo** para configurar uno nuevo. **Ajustar estilo** abre directamente la configuración actual.
+
+Cada modo muestra seis controles: ritmo visual, movimiento de cámara, iluminación, color, detalle visual y un último control específico. En voz en off, **Cómo acompaña la explicación** elige imágenes de apoyo, demostraciones, diagramas progresivos o gráficos sobre la imagen. Con personajes, **Interpretación de los personajes** elige una actuación natural, contenida, expresiva o teatral. Puedes cambiar el nombre, el estilo base y las **Indicaciones del estilo**.
+
+Los parámetros elegidos prevalecen sobre los valores del estilo base. Las indicaciones personalizadas prevalecen sobre ambos cuando hay un conflicto visual; no cambian el guion, las identidades de los hablantes ni el modo de narración. Estos ajustes se utilizan en la planificación, las referencias de Nano Banana y los prompts de vídeo. Cambiar de modo conserva una configuración personalizada, incluidos cambios solo de nombre o parámetros. Un estilo de catálogo sin personalizar que no exista en el nuevo modo pasa a Realista.
+
+En escritorio, las referencias y los ajustes se ven en dos columnas; en móvil se alternan mediante **Ajustes / Referencias**. Las muestras son ilustraciones generadas con IA, no plantillas ni resultados garantizados del modelo. **La muestra no se vuelve a generar al ajustar los controles**: representa el estilo base. Estas imágenes de la aplicación no se envían automáticamente a Google como referencias. Consulta su [procedencia](../src/assets/README.md).
+
+### Mis estilos y configuración de cada proyecto
+
+**Usar estos ajustes** aplica una copia de la configuración al borrador de la historia. **Guardar en Mis estilos** guarda además el perfil y sus archivos de referencia en este navegador para reutilizarlos. Son acciones distintas: guardar un estilo en la biblioteca no lo aplica al proyecto, y usarlo no guarda automáticamente sus archivos en la biblioteca. Guarda la propuesta del proyecto para que su configuración quede persistida.
+
+Desde **Mis estilos** puedes editar, clonar o eliminar entradas. En una entrada guardada, **Actualizar estilo guardado** modifica esa entrada y **Guardar como nuevo** crea otra. Los proyectos conservan su propia copia: modificar o borrar una entrada de la biblioteca no cambia las historias que ya la usan. La biblioteca y sus archivos son locales a este origen del navegador, sin sincronización ni exportación o importación de estilos.
+
+### Crear un estilo a partir de imágenes o vídeos
+
+1. En la configuración del estilo, pulsa **Subir imágenes o vídeos** o arrastra archivos a **Referencias**. Se admiten JPG, PNG y WebP, y vídeos MP4, WebM y MOV: hasta seis archivos y **14 MiB en total** (la interfaz lo expresa como 14 MB). Puedes previsualizarlos y quitar cualquiera; para vídeo, usa un fragmento corto.
+2. Pulsa **Analizar con Gemini**. Es una solicitud explícita con tu clave de Google que consume cuota. Envía únicamente los archivos elegidos para ese análisis; las imágenes se normalizan en copias para el envío y los originales se conservan. El conjunto preparado también debe caber en 14 MiB.
+3. Revisa el nombre, los parámetros, las indicaciones y la explicación que devuelve Gemini. **Aplicar análisis** los incorpora al borrador del estilo; **Descartar análisis** conserva los ajustes anteriores. Después puedes corregir cualquier campo antes de usarlo o guardarlo.
+4. Pulsa **Usar estos ajustes** para aplicar el estilo al proyecto y, si quieres reutilizarlo con sus referencias, guárdalo también en **Mis estilos**.
+
+El análisis busca reglas de apariencia, materiales, color, luz, composición y movimiento; no reutiliza automáticamente las personas, escenas, voces o diálogo de los archivos. Los archivos de estilo **no se adjuntan automáticamente a las generaciones**: el texto y los parámetros extraídos orientan el plan, las referencias generadas y los vídeos. Para guiar un personaje o un lugar concreto, utiliza las referencias de la historia por separado. Los parámetros son indicaciones para el modelo, no un renderizado determinista: no se garantiza una reproducción visual exacta ni la precisión de diagramas o texto generado.
+
+Un error, un análisis cancelado o una respuesta tardía no sustituye los ajustes actuales. **Cancelar análisis** o cerrar interrumpe la espera local; no garantiza cancelar el procesamiento o la facturación de Google. La propuesta de análisis pendiente es temporal. Solo los archivos de un estilo guardado en **Mis estilos** persisten para reutilizarlos; cerrar sin guardarlos no los incorpora al proyecto.
 
 ## Duración y sincronización
 

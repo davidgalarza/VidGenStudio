@@ -29,7 +29,7 @@ import {
   type Story,
   type StoryConfig,
   type StoryMode,
-  type StoryStyle,
+  type StoryStyleProfile,
   type StoryBlock,
   type Scene,
   type Narration,
@@ -63,6 +63,11 @@ import {
 } from "../lib/storyCast";
 import { ReferencePicker } from "./ReferencePicker";
 import { StoryStylePicker } from "./StoryStylePicker";
+import {
+  createStyleProfile,
+  profileForMode,
+  validStyleProfile,
+} from "../lib/storyStyles";
 import {
   DialogueEditor,
   SceneConversation,
@@ -527,8 +532,18 @@ function ScriptEntry({
     }
   });
   const [script, setScript] = useState<string>(initial.script || "");
-  const [mode, setMode] = useState<StoryMode | "">(initial.mode || "");
-  const [style, setStyle] = useState<StoryStyle | "">(initial.style || "");
+  const [mode, setMode] = useState<StoryMode>(
+    initial.mode === "spoken" ? "spoken" : "voiceover",
+  );
+  const [styleProfile, setStyleProfile] = useState<StoryStyleProfile>(() =>
+    validStyleProfile(initial.styleProfile)
+      ? initial.styleProfile
+      : createStyleProfile(
+          initial.style || "realistic",
+          initial.mode === "spoken" ? "spoken" : "voiceover",
+        ),
+  );
+  const style = styleProfile.base;
   const [direction, setDirection] = useState<string>(initial.direction || "");
   const [references, setReferences] = useState(initial.references !== false);
   const [busy, setBusy] = useState(false);
@@ -537,12 +552,19 @@ function ScriptEntry({
     try {
       sessionStorage.setItem(
         `vidgen-story-draft-${project.id}`,
-        JSON.stringify({ script, mode, style, direction, references }),
+        JSON.stringify({
+          script,
+          mode,
+          style,
+          styleProfile,
+          direction,
+          references,
+        }),
       );
     } catch {
       /* The input remains editable if storage is unavailable. */
     }
-  }, [script, mode, style, direction, references, project.id]);
+  }, [script, mode, style, styleProfile, direction, references, project.id]);
   async function propose() {
     if (busy || w.storyJob) return;
     setBusy(true);
@@ -555,8 +577,9 @@ function ScriptEntry({
       await db.createStory(
         project.id,
         newStoryProposal(script, {
-          mode: mode || undefined,
-          style: style || undefined,
+          mode,
+          style,
+          styleProfile,
           direction,
           autoReferences: references,
         }),
@@ -588,9 +611,12 @@ function ScriptEntry({
           <select
             aria-label="Preferencia de narración"
             value={mode}
-            onChange={(e) => setMode(e.target.value as StoryMode | "")}
+            onChange={(e) => {
+              const next = e.target.value as StoryMode;
+              setMode(next);
+              setStyleProfile((p) => profileForMode(p, next));
+            }}
           >
-            <option value="">Que Gemini lo proponga</option>
             <option value="spoken">Personajes hablando</option>
             <option value="voiceover">Voz en off · Gemini TTS</option>
           </select>
@@ -602,7 +628,12 @@ function ScriptEntry({
                 : "Pega un monólogo, una conversación o una narración; la IA propone cómo contarlo."}
           </small>
         </label>
-        <StoryStylePicker value={style} onChange={setStyle} automatic />
+        <StoryStylePicker
+          value={style}
+          profile={styleProfile}
+          mode={mode}
+          onChange={setStyleProfile}
+        />
       </div>
       <label className="story-script-label">
         Guion completo
@@ -1028,7 +1059,10 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
             ? `Voz en off · ${draft.voiceId}`
             : `${draft.characters.length} ${draft.characters.length === 1 ? "personaje" : "personajes"}`}
         </span>
-        <span>{storyStyles.find((s) => s.id === draft.style)?.label}</span>
+        <span>
+          {draft.styleProfile?.name ||
+            storyStyles.find((s) => s.id === draft.style)?.label}
+        </span>
         <span>
           {draft.settings.aspectRatio} · {draft.settings.resolution}
         </span>
@@ -1792,9 +1826,15 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                 <select
                   aria-label="Modo de narración"
                   value={draft.mode}
-                  onChange={(e) =>
-                    update({ mode: e.target.value as StoryMode })
-                  }
+                  onChange={(e) => {
+                    const mode = e.target.value as StoryMode;
+                    const styleProfile = profileForMode(
+                      draft.styleProfile ||
+                        createStyleProfile(draft.style, draft.mode),
+                      mode,
+                    );
+                    update({ mode, style: styleProfile.base, styleProfile });
+                  }}
                 >
                   <option value="voiceover">Voz en off · Gemini TTS</option>
                   <option value="spoken">
@@ -1804,7 +1844,12 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
               </label>
               <StoryStylePicker
                 value={draft.style}
-                onChange={(style) => style && update({ style })}
+                profile={draft.styleProfile}
+                mode={draft.mode}
+                disabled={busy}
+                onChange={(styleProfile) =>
+                  update({ style: styleProfile.base, styleProfile })
+                }
               />
             </div>
             {draft.mode === "voiceover" ? (

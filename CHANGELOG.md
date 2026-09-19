@@ -12,7 +12,10 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 ### Añadido
 
 - Conversaciones con varios personajes dentro de una escena: intervenciones editables, interpretación, acciones, oyentes y tomas automáticas, compartidas o alternadas. La entrada sigue siendo texto libre.
-- Escenarios vacíos generados con Nano Banana como referencias reutilizables y galería visual de doce estilos.
+- Escenarios vacíos generados con Nano Banana como referencias reutilizables.
+- Biblioteca visual de 34 estilos distintos: 24 para voz en off y 20 para personajes hablando, con búsqueda, filtros y seis controles por modo. Conserva los estilos anteriores y añade 22 opciones.
+- Estilos personales: crear, personalizar, guardar, clonar, editar y eliminar, con copias independientes en cada proyecto y referencias guardadas en una biblioteca local.
+- Análisis explícito de hasta seis imágenes o vídeos con Gemini, propuesta revisable y aplicación manual; no adjunta automáticamente los archivos a las generaciones. Tres atlas ilustrativos con procedencia documentada.
 - Revisión opcional del diálogo con Gemini: transcripción, comparación de palabras y hablantes y observaciones, sin regeneraciones automáticas.
 - Generación paralela de clips e historias: 3 solicitudes simultáneas por defecto, ajuste de 1 a 4, progreso por escena, recuperación múltiple y reducción automática a 1 tras un límite de cuota.
 
@@ -32,6 +35,7 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 
 ### Cambiado
 
+- Historia comienza con modo y estilo explícitos, inicialmente voz en off y Realista. Los ajustes personalizados se conservan al cambiar de modo; los parámetros y la dirección personalizada tienen prioridad visual sobre la base. Los ajustes se propagan al plan, Nano Banana y los vídeos.
 - Producción de Historia agrupada por escena narrativa, con correcciones por toma, versiones anteriores conservadas y actualización de referencias automáticas al cambiar de hablante.
 - Historia empieza por el guion: Gemini completa una propuesta editable de escenas, reparto, voces y referencias de Nano Banana antes de producir.
 - Gemini TTS sustituye ElevenLabs con la misma clave de Google; WAV con duración real y cortes por pausas, sin inventar tiempos por palabra. Los audios antiguos se conservan.
