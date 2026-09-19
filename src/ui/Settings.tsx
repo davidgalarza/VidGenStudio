@@ -23,10 +23,12 @@ export function Settings({
   workspace: w,
   onKeyChange,
   returnToClip,
+  returnLabel = "Volver al clip",
 }: {
   workspace: WorkspaceController;
   onKeyChange: () => void;
   returnToClip?: () => void;
+  returnLabel?: string;
 }) {
   const [key, setKey] = useState(getApiKey);
   const [visible, setVisible] = useState(false);
@@ -52,7 +54,7 @@ export function Settings({
     <div className="page settings-page">
       {returnToClip && (
         <button className="text-button settings-return" onClick={returnToClip}>
-          <ArrowLeft size={16} /> Volver al clip
+          <ArrowLeft size={16} /> {returnLabel}
         </button>
       )}
       <h1>Ajustes del estudio</h1>

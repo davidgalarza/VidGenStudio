@@ -1746,6 +1746,84 @@ button {
   gap: 24px;
   margin-bottom: 42px;
 }
+.project-kind-options {
+  display: grid;
+  gap: 14px;
+  margin-top: 22px;
+}
+.project-kind-option {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 18px;
+  align-items: start;
+  gap: 16px;
+  padding: 24px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.project-kind-option:hover:not(:disabled),
+.project-kind-option:focus-visible {
+  background: var(--raised);
+  border-color: var(--muted);
+}
+.project-kind-option strong {
+  display: block;
+  font-size: 1.08rem;
+  font-weight: 550;
+  margin-bottom: 8px;
+}
+.project-kind-option small {
+  display: block;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.project-kind-option > svg {
+  margin-top: 2px;
+  color: var(--muted);
+}
+.project-type-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 22px;
+}
+.project-type-filter button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--muted);
+  border: 1px solid transparent;
+}
+.project-type-filter button:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+.project-type-filter button.active {
+  border-color: var(--line);
+  background: var(--raised);
+  color: var(--text);
+}
+.project-type-filter button span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.project-type-label {
+  color: var(--text);
+}
+@media (max-width: 600px) {
+  .project-kind-option {
+    padding: 18px;
+    gap: 12px;
+  }
+  .project-name small {
+    flex-wrap: wrap;
+  }
+}
 .projects-header h1 {
   font-size: 2rem;
   letter-spacing: -0.035em;

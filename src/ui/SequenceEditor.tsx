@@ -209,10 +209,12 @@ export function SequenceEditor({
   project,
   workspace: w,
   onBack,
+  backLabel = "Todos los clips",
 }: {
   project: Project;
   workspace: WorkspaceController;
   onBack: () => void;
+  backLabel?: string;
 }) {
   const scenes = w.scenes.filter(
     (s) => s.project_id === project.id && !s.deleted_at,
@@ -625,7 +627,7 @@ export function SequenceEditor({
       ))}
       <header className="sequence-header">
         <button className="text-button" onClick={() => void leave()}>
-          <ArrowLeft size={16} /> Todos los clips
+          <ArrowLeft size={16} /> {backLabel}
         </button>
         <div>
           <h1>

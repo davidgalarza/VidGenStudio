@@ -10,8 +10,8 @@ Este proyecto es un fork independiente de [Video Orchestrator, de Rajjit Laishra
 
 ## Qué incluye
 
-- **Modo Historia:** pega un guion y Gemini propone escenas, personajes, voces y referencias con Nano Banana. Revisa el plan y produce vídeos con diálogo o voz en off de Gemini TTS, usando una sola clave de Google. [Cómo funciona](docs/story.md).
-- **Proyectos vacíos:** crea clips cuando los necesites, sin plantillas ni tomas automáticas.
+- **Proyectos de historia:** pega un guion y Gemini propone escenas, personajes, voces y referencias con Nano Banana. Revisa el plan y produce vídeos con diálogo o voz en off de Gemini TTS, usando una sola clave de Google. [Cómo funciona](docs/story.md).
+- **Dos tipos de proyecto:** Clips para generar y editar tomas independientes; Historia para trabajar desde un guion, con sus materiales y montaje. Ambos empiezan vacíos, sin plantillas ni tomas automáticas.
 - **Generación con Google:** integración con Gemini Omni 1.1 Flash y Veo 3.1, referencias visuales y generación de imágenes de referencia.
 - **Cola paralela persistente:** hasta 3 vídeos a la vez por defecto (ajustable de 1 a 4), tandas de 1 a 20 clips independientes y recuperación múltiple tras recargar.
 - **Biblioteca de clips:** búsqueda, filtros, favoritos, descartados, papelera, comparación y reutilización de ajustes.
@@ -31,7 +31,7 @@ npm ci
 npm run dev
 ```
 
-Abre la dirección que muestra Vite, normalmente [localhost:5173](http://localhost:5173). Crea un proyecto y pulsa **Nuevo clip**. Para generar, introduce tu clave personal en **Ajustes**.
+Abre la dirección que muestra Vite, normalmente [localhost:5173](http://localhost:5173). Elige **Proyecto de clips** para empezar con **Nuevo clip**, o **Proyecto de historia** para partir de un guion. Para generar, introduce tu clave personal en **Ajustes**.
 
 No necesitas `.env`, una cuenta de servicio, una base de datos externa ni un backend. **No incluyas una API key en el repositorio ni en variables `VITE_*` del despliegue.**
 

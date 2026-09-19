@@ -45,7 +45,7 @@ flowchart LR
 
 IndexedDB conserva el nombre `vid-gen-studio`, versión de esquema 2, y los almacenes `projects`, `scenes`, `assets`, `usage_logs` y `narrations`. `scenes` y `narrations` tienen un índice `by-project`. La migración desde la versión 1 añade narraciones sin sustituir los datos existentes. Los campos nuevos son opcionales para leer registros anteriores; una migración estructural futura debe incrementar la versión y preservar los blobs.
 
-- `Project`: nombre, fechas, IDs de clips del montaje y `sequence_items` cuando existe un montaje detallado.
+- `Project`: tipo `kind` (`clips` o `story`), nombre, fechas, IDs de clips del montaje y `sequence_items` cuando existe un montaje detallado.
 - `Scene`: borrador, ajustes, referencias, estado, versiones y solicitudes pendientes. `origin` enlaza un clip derivado con su fuente.
 - `ClipVersion`: Blob, prompt, ajustes, duración declarada e identificador de interacción cuando existe.
 - `Asset`: imagen como data URL, tipo y vinculación global o por proyectos.
@@ -54,6 +54,12 @@ IndexedDB conserva el nombre `vid-gen-studio`, versión de esquema 2, y los alma
 `sceneBlob` y `activeVersion` leen la versión activa con compatibilidad para el antiguo `video_blob`. Las URL `blob:` se crean para reproducir y se revocan; no son enlaces duraderos que puedan compartirse.
 
 `usage_logs` se conserva por compatibilidad; no representa una factura de Google ni permite calcular cargos reales. La clave está separada en localStorage; consulta [privacidad](privacy.md).
+
+## Tipos de proyecto y navegación
+
+`NewProjectDialog` crea proyectos vacíos con un tipo explícito. `StudioApp` conserva la ruta `#project/:id` y elige `ProjectWorkspace` para Clips o `StoryWorkspace` para Historia. El espacio de historia contiene Guion y escenas, Materiales (reutiliza la biblioteca completa de clips) y Montaje. Los borradores de las escenas siguen montados al alternar estas vistas; la reproducción se pausa al salir. La salida del montaje espera sus escrituras antes de regresar a la vista de origen.
+
+`projectKind.ts` infiere el tipo de registros antiguos al leerlos: una historia guardada o un guion inicial no vacío en sessionStorage abre Historia; el resto abre Clips. No modifica blobs, referencias, versiones, narraciones ni secuencias. No requiere otra versión del esquema. Crear una historia persiste su tipo; `createStory` rechaza proyectos nuevos declarados explícitamente como Clips. La cola global sigue procesando trabajos de ambos tipos mientras se navega.
 
 ## Preparación de historias
 

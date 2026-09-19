@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft,
   ArrowRight,
   BookOpen,
   Download,
@@ -19,6 +18,7 @@ import {
   ChevronUp,
   ChevronDown,
   Scissors,
+  Search,
 } from "lucide-react";
 import {
   OMNI_MODEL,
@@ -1597,6 +1597,31 @@ function ProductionBoard({
   >({});
   const [savingPending, setSavingPending] = useState(false);
   const [pendingError, setPendingError] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const activeIds = new Set([
+    ...w.jobs.map((j) => j.sceneId),
+    ...w.queue.map((q) => q.sceneId),
+  ]);
+  const status = (scene: Scene) =>
+    activeIds.has(scene.id)
+      ? "active"
+      : scene.error || scene.task?.remoteId
+        ? "attention"
+        : sceneBlob(scene)
+          ? "ready"
+          : "pending";
+  const visible = new Set(
+    scenes
+      .filter(
+        (s) =>
+          (filter === "all" || status(s) === filter) &&
+          `${s.title || ""} ${s.story?.text || ""} ${s.story?.visual || ""}`
+            .toLocaleLowerCase()
+            .includes(search.toLocaleLowerCase()),
+      )
+      .map((s) => s.id),
+  );
   async function continueProduction() {
     if (savingPending || w.storyJob) return;
     setSavingPending(true);
@@ -1802,16 +1827,76 @@ function ProductionBoard({
           ? "Gemini TTS narra el guion. El montaje combina imagen y voz; regenerar una toma conserva su narración."
           : "Revisa que cada personaje termine su diálogo y mantenga la voz entre tomas."}
       </p>
+      {!!scenes.length && (
+        <div className="story-scene-filters">
+          <label className="search">
+            <Search size={16} />
+            <input
+              aria-label="Buscar escenas de la historia"
+              placeholder="Buscar por nombre, guion o imagen"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </label>
+          <div
+            className="project-type-filter"
+            role="group"
+            aria-label="Estado de las escenas"
+          >
+            {(
+              [
+                ["all", "Todas"],
+                ["attention", "Por revisar"],
+                ["pending", "Pendientes"],
+                ["active", "En proceso"],
+                ["ready", "Listas"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                aria-pressed={filter === value}
+                className={filter === value ? "active" : ""}
+                onClick={() => setFilter(value)}
+              >
+                {label}{" "}
+                <span>
+                  {value === "all"
+                    ? scenes.length
+                    : scenes.filter((s) => status(s) === value).length}
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="hint" role="status">
+            {visible.size} de {scenes.length} escenas · En orden de guion
+          </p>
+          {!visible.size && (
+            <div className="story-filter-empty">
+              <p>No hay escenas que coincidan.</p>
+              <button
+                className="text-button"
+                onClick={() => {
+                  setSearch("");
+                  setFilter("all");
+                }}
+              >
+                Mostrar todas las escenas
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       <div className="story-scenes">
         {scenes.map((s, i) => (
-          <StorySceneCard
-            key={`${s.id}:${s.story?.planned}`}
-            scene={s}
-            index={i}
-            audio={w.narrations.find((a) => a.id === s.story?.audioId)}
-            config={story}
-            workspace={w}
-          />
+          <div key={`${s.id}:${s.story?.planned}`} hidden={!visible.has(s.id)}>
+            <StorySceneCard
+              scene={s}
+              index={i}
+              audio={w.narrations.find((a) => a.id === s.story?.audioId)}
+              config={story}
+              workspace={w}
+            />
+          </div>
         ))}
       </div>
     </div>
@@ -1820,11 +1905,9 @@ function ProductionBoard({
 export function StoryEditor({
   project,
   workspace: w,
-  onBack,
   onSequence,
   onSettings,
 }: StoryProps & {
-  onBack: () => void;
   onSequence: () => void;
   onSettings: () => void;
 }) {
@@ -1834,22 +1917,18 @@ export function StoryEditor({
   return (
     <div className="story-editor">
       <header className="story-top">
-        <div className="inline">
-          <button
-            className="icon-button"
-            aria-label="Volver a los clips"
-            onClick={onBack}
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <div>
-            <span className="eyebrow">{project.name}</span>
-            <h1>Historia</h1>
-          </div>
-        </div>
+        <h1 className="sr-only">Historia: {project.name}</h1>
         <ol className="story-workflow" aria-label="Etapas de la historia">
-          <li className={!story ? "current" : "done"}>Guion</li>
           <li
+            className={!story ? "current" : "done"}
+            aria-current={!story ? "step" : undefined}
+          >
+            Guion
+          </li>
+          <li
+            aria-current={
+              planning || story?.phase === "review" ? "step" : undefined
+            }
             className={
               planning || story?.phase === "review"
                 ? "current"
@@ -1861,6 +1940,11 @@ export function StoryEditor({
             Propuesta
           </li>
           <li
+            aria-current={
+              story && !planning && story.phase !== "review"
+                ? "step"
+                : undefined
+            }
             className={
               story && !planning && story.phase !== "review" ? "current" : ""
             }

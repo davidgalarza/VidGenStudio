@@ -15,7 +15,6 @@ import {
   Star,
   CircleSlash,
   Columns2,
-  BookOpen,
 } from "lucide-react";
 import {
   activeVersion,
@@ -37,20 +36,23 @@ import { isContentBlock } from "../lib/contentReview";
 import { VideoDownloadDialog } from "./VideoDownloadDialog";
 import { DownloadDialog } from "./DownloadDialog";
 import { CompareDialog } from "./CompareDialog";
-import { StoryEditor } from "./StoryEditor";
 
 export function ProjectWorkspace({
   project,
   workspace: w,
   settings,
   initialClipId,
+  materials = false,
+  onSequence,
 }: {
   project: Project;
   workspace: WorkspaceController;
   settings: (clipId?: string) => void;
   initialClipId?: string;
+  materials?: boolean;
+  onSequence?: () => void;
 }) {
-  const [view, setView] = useState<"clips" | "edit" | "sequence" | "story">(
+  const [view, setView] = useState<"clips" | "edit" | "sequence">(
     initialClipId ? "edit" : "clips",
   );
   const [editing, setEditing] = useState(initialClipId || "");
@@ -63,6 +65,7 @@ export function ProjectWorkspace({
   const [sort, setSort] = useState("recent");
   const [deleted, setDeleted] = useState<string>();
   const [creating, setCreating] = useState(false);
+  const openSequence = () => (onSequence ? onSequence() : setView("sequence"));
   const focusReturn = useRef<HTMLElement | null>(null);
   const scenes = w.scenes.filter((s) => s.project_id === project.id);
   const sequence = sequenceScenes(project, scenes);
@@ -149,7 +152,7 @@ export function ProjectWorkspace({
       ]);
       await w.refresh();
       setSelection([]);
-      setView("sequence");
+      openSequence();
     });
   const review = (scene: Scene, next: Scene["review"]) =>
     void w.action(async () => {
@@ -175,42 +178,35 @@ export function ProjectWorkspace({
         onBack={() => setView("clips")}
       />
     );
-  if (view === "story")
-    return (
-      <StoryEditor
-        key={project.id}
-        project={project}
-        workspace={w}
-        onBack={() => setView("clips")}
-        onSequence={() => setView("sequence")}
-        onSettings={() => settings()}
-      />
-    );
   return (
-    <div className="project-clips">
+    <div className={`project-clips ${materials ? "story-materials" : ""}`}>
       <div className="editor-top">
-        <div className="project-title">
-          <input
-            aria-label="Nombre del proyecto"
-            defaultValue={project.name}
-            maxLength={80}
-            onBlur={(e) => {
-              if (e.target.value.trim())
-                void w.action(() =>
-                  db.renameProject(project.id, e.target.value),
-                );
-              else e.target.value = project.name;
-            }}
-          />
-          <span>
-            <Check size={12} /> Guardado en este navegador
-          </span>
-        </div>
+        {!materials ? (
+          <div className="project-title">
+            <input
+              aria-label="Nombre del proyecto"
+              defaultValue={project.name}
+              maxLength={80}
+              onBlur={(e) => {
+                if (e.target.value.trim())
+                  void w.action(() =>
+                    db.renameProject(project.id, e.target.value),
+                  );
+                else e.target.value = project.name;
+              }}
+            />
+            <span>
+              <Film size={12} /> Proyecto de clips{" "}
+              <span aria-hidden="true">·</span> <Check size={12} /> Guardado en
+              este navegador
+            </span>
+          </div>
+        ) : (
+          <p>
+            Todos los vídeos de esta historia, incluidas las tomas de apoyo.
+          </p>
+        )}
         <div className="inline">
-          <button className="button compact" onClick={() => setView("story")}>
-            <BookOpen size={15} />
-            Historia
-          </button>
           <button
             className="button compact"
             disabled={
@@ -223,7 +219,7 @@ export function ProjectWorkspace({
           <button
             className="button compact"
             disabled={w.storyJob?.projectId === project.id}
-            onClick={() => setView("sequence")}
+            onClick={openSequence}
           >
             <Layers size={15} />
             {sequence.length
@@ -243,7 +239,8 @@ export function ProjectWorkspace({
         <header className="clips-heading">
           <div>
             <h1>
-              Clips del proyecto <span className="count">{scenes.length}</span>
+              {materials ? "Vídeos de la historia" : "Clips del proyecto"}{" "}
+              <span className="count">{scenes.length}</span>
             </h1>
             <p>
               Genera, compara clips y descarga cada vídeo para seguir editando.

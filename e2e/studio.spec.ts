@@ -20,6 +20,9 @@ async function createProject(page: Page, sceneCount = 1) {
     .locator(".home-page")
     .getByRole("button", { name: "Nuevo proyecto", exact: true })
     .click();
+  await page
+    .getByRole("button", { name: "Crear proyecto de clips", exact: true })
+    .click();
   await page.getByLabel("Ordenar clips").selectOption("order");
   await expect(page.locator(".project-clip")).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);

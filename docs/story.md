@@ -1,4 +1,4 @@
-# Modo Historia
+# Proyectos de historia
 
 [Documentación](README.md) · [Uso general](usage.md)
 
@@ -6,7 +6,7 @@ Historia convierte un guion en un proyecto audiovisual editable. Utiliza la mism
 
 ## Del guion a la producción
 
-1. Abre **Historia** dentro de un proyecto y pega el **Guion completo**. Puedes dejar que Gemini decida la narración y el estilo, o abrir **Dar indicaciones** para orientar la propuesta.
+1. Pulsa **Nuevo proyecto → Proyecto de historia** y pega el **Guion completo**. Puedes dejar que Gemini decida la narración y el estilo, o abrir **Dar indicaciones** para orientar la propuesta.
 2. Pulsa **Crear propuesta**. Gemini organiza las escenas, detecta personajes, propone voces y describe qué se verá. Por defecto, Nano Banana genera también imágenes de referencia; desmarca esa opción si prefieres elegirlas después. Esta etapa utiliza texto e imágenes, todavía no genera voz ni vídeo.
 3. Revisa la propuesta. En **Escenas** puedes editar títulos, texto e imagen, dividir, ordenar, quitar o añadir momentos y elegir sus referencias. **Personajes y referencias** reúne las apariencias, descripciones de voz e imágenes reutilizables. **Voz y estilo** permite cambiar narración, voz de Gemini, dirección creativa, estilo, formato y modelo.
 4. Pulsa **Producir historia** cuando el plan esté listo. Se guardan los cambios, se prepara la narración y se añaden los vídeos a la cola en segundo plano. El audio real determina cuántos clips necesita cada escena.
@@ -72,6 +72,10 @@ Cada solicitud puede consumir cuota. No se repiten automáticamente solicitudes 
 Las claves se configuran una sola vez en Ajustes. El acceso a TTS, imágenes, texto y vídeo depende de los modelos habilitados y de la cuota de tu cuenta; comprobar la conexión no garantiza acceso a todos.
 
 ## Montaje y materiales
+
+**Guion y escenas** abre en la etapa guardada. En producción, busca por nombre, texto o descripción visual y filtra **Todas / Por revisar / Pendientes / En proceso / Listas**. Las escenas conservan su número y orden de guion; los filtros y los cambios entre secciones no descartan las ediciones abiertas. Guarda los cambios de cada toma antes de salir del proyecto o recargar.
+
+**Materiales** reúne todos los vídeos del proyecto, incluidas las tomas de apoyo o los clips de proyectos anteriores. Conserva generación individual, edición, extensión, comparación, favoritos, papelera y descargas. **Montaje** abre el editor de secuencia; al salir regresa a la sección desde la que lo abriste, después de guardar los ajustes.
 
 El montaje sigue la toma activa de cada escena de Historia. Los montajes normales conservan sus versiones fijadas. **Exportar vídeo** incorpora la voz en off: descargar un clip original por separado conserva el archivo de vídeo recibido del modelo.
 

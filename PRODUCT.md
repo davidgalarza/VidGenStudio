@@ -22,7 +22,11 @@ Historia uses the same personal Google connection for Gemini planning, Nano Bana
 
 ## Operating Context
 
-Primary workflow: project clip libraries, individual editing, reusable image references and multiple versions. Users can download selected original clips in ZIP for a local editor, or explicitly assemble an optional sequence with its own saved order. Requests that consume Google quota follow an explicit action with its scope visible. Downloads and local data are not synchronized across devices.
+Two explicit project types: Clips opens a clip library; Historia opens its saved script, proposal or production stage. Creation starts empty without provider calls. Legacy projects with a saved story or a nonempty initial session draft open in Historia; all existing clips, versions, references and montage data remain accessible. Home can filter by type.
+
+Clip workflow: project clip libraries, individual editing, reusable image references and multiple versions. Users can download selected original clips in ZIP for a local editor, or explicitly assemble an optional sequence with its own saved order. Requests that consume Google quota follow an explicit action with its scope visible. Downloads and local data are not synchronized across devices.
+
+Historia has dedicated Guion y escenas, Materiales and Montaje views. Materiales reuses the full clip library, including legacy independent clips. Production supports scene search and status filters while retaining script order and in-progress edits across these views. Montage returns to its entry view after saving.
 
 Historia starts with a script; narration mode, visual style and direction are optional inputs. Creating a proposal asks Gemini to organize the original text and suggest scenes, characters, voices and visual references. Reference image generation can be included in this step. The proposal remains editable before the separate production action creates narration and videos: users can revise text and visuals, reorder or split scenes, adjust the cast, select or regenerate references, and choose voice and output settings.
 

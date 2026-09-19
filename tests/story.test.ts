@@ -148,7 +148,12 @@ describe("script coverage and exact narration timing", () => {
 });
 describe("story persistence and editable montage", () => {
   it("atomically creates each block once, retains voice during regeneration and removes its audio with the project", async () => {
-    const project = await db.createProject("Historia", [], DEFAULT_VIDEO);
+    const project = await db.createProject(
+      "Historia",
+      [],
+      DEFAULT_VIDEO,
+      "story",
+    );
     const story = makeStory(config);
     await db.createStory(project.id, story);
     const audio = {
@@ -477,7 +482,12 @@ describe("editable Gemini proposals", () => {
     expect(story.blocks).toHaveLength(0);
   });
   it("saves review edits with conflict protection, replaces linked references and clears deleted images", async () => {
-    const project = await db.createProject("Propuesta", [], DEFAULT_VIDEO);
+    const project = await db.createProject(
+      "Propuesta",
+      [],
+      DEFAULT_VIDEO,
+      "story",
+    );
     let story = newStoryProposal("Un guion breve.");
     story = applyProposalBatch(
       story,
@@ -604,7 +614,12 @@ describe("story cast identity and actionable validation", () => {
     expect(storyCastIssues(repaired)).toEqual([]);
   });
   it("names the exact scene and unknown person on save, then persists canonical identities", async () => {
-    const project = await db.createProject("Reparto", [], DEFAULT_VIDEO);
+    const project = await db.createProject(
+      "Reparto",
+      [],
+      DEFAULT_VIDEO,
+      "story",
+    );
     const story = proposed(["ana maria", "Narrador"]);
     await db.createStory(project.id, story);
     await expect(db.saveStoryDraft(project.id, story)).rejects.toThrow(

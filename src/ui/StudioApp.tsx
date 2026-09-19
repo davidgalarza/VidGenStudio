@@ -7,7 +7,6 @@ import {
   Clapperboard,
   Download,
   Film,
-  Folder,
   House,
   Images,
   KeyRound,
@@ -24,6 +23,10 @@ import { getApiKey, getDefaults } from "../lib/settings";
 import { downloadBlob } from "../lib/media";
 import { Home } from "./Home";
 import { ProjectWorkspace } from "./ProjectWorkspace";
+import { StoryWorkspace } from "./StoryWorkspace";
+import { NewProjectDialog } from "./NewProjectDialog";
+import { projectKind, type ProjectKind } from "../types";
+import { errorMessage } from "../lib/google";
 import { Settings } from "./Settings";
 import { QueueActivity } from "./QueueActivity";
 import { Library } from "./Library";
@@ -37,6 +40,11 @@ export function StudioApp() {
   const [route, setRoute] = useState(currentRoute);
   const [menu, setMenu] = useState(false);
   const [activity, setActivity] = useState(false);
+  const [newProject, setNewProject] = useState(false);
+  const [creatingProject, setCreatingProject] = useState<ProjectKind | null>(
+    null,
+  );
+  const [projectError, setProjectError] = useState("");
   const [settingsReturn, setSettingsReturn] = useState<{
     projectId: string;
     clipId?: string;
@@ -48,7 +56,7 @@ export function StudioApp() {
     return () => window.removeEventListener("hashchange", change);
   }, []);
   const navigate = (next: string) => {
-    window.location.hash = next;
+    window.location.assign(`#${next}`);
     setRoute(next);
     setMenu(false);
   };
@@ -59,15 +67,30 @@ export function StudioApp() {
     setSettingsReturn(undefined);
     navigate(`project/${id}`);
   };
-  const create = () =>
-    void w.action(async () => {
+  const create = () => {
+    setProjectError("");
+    setNewProject(true);
+  };
+  const createTypedProject = async (kind: ProjectKind) => {
+    if (creatingProject) return;
+    setCreatingProject(kind);
+    setProjectError("");
+    try {
       const project = await db.createProject(
-        "Proyecto sin título",
+        kind === "story" ? "Historia sin título" : "Proyecto sin título",
         [],
         getDefaults(),
+        kind,
       );
+      await w.refresh();
+      setNewProject(false);
       open(project.id);
-    });
+    } catch (e) {
+      setProjectError(errorMessage(e));
+    } finally {
+      setCreatingProject(null);
+    }
+  };
   const nav = [
     { id: "home", text: "Mis proyectos", icon: House },
     { id: "assets", text: "Referencias", icon: Images },
@@ -135,9 +158,13 @@ export function StudioApp() {
               key={p.id}
               className={project?.id === p.id ? "active" : ""}
               onClick={() => open(p.id)}
-              title={p.name}
+              title={`${p.name} · ${projectKind(p) === "story" ? "Historia" : "Clips"}`}
             >
-              <Folder size={15} />
+              {projectKind(p) === "story" ? (
+                <BookOpen size={15} />
+              ) : (
+                <Film size={15} />
+              )}
               <span>{p.name}</span>
             </button>
           ))}
@@ -260,6 +287,17 @@ export function StudioApp() {
                 <Settings
                   workspace={w}
                   onKeyChange={() => setConnected(!!getApiKey())}
+                  returnLabel={
+                    settingsReturn &&
+                    !settingsReturn.clipId &&
+                    w.projects.some(
+                      (p) =>
+                        p.id === settingsReturn.projectId &&
+                        projectKind(p) === "story",
+                    )
+                      ? "Volver a la historia"
+                      : "Volver al clip"
+                  }
                   returnToClip={
                     settingsReturn
                       ? () => navigate(`project/${settingsReturn.projectId}`)
@@ -273,7 +311,7 @@ export function StudioApp() {
               {route === "videos" && (
                 <Library key="videos" workspace={w} videos open={open} />
               )}
-              {project && (
+              {project && projectKind(project) === "clips" && (
                 <ProjectWorkspace
                   key={project.id}
                   project={project}
@@ -283,6 +321,23 @@ export function StudioApp() {
                       ? settingsReturn.clipId
                       : undefined
                   }
+                  settings={(clipId) => {
+                    setSettingsReturn({ projectId: project.id, clipId });
+                    navigate("settings");
+                  }}
+                />
+              )}
+              {project && projectKind(project) === "story" && (
+                <StoryWorkspace
+                  key={project.id}
+                  project={project}
+                  workspace={w}
+                  initialClipId={
+                    settingsReturn?.projectId === project.id
+                      ? settingsReturn.clipId
+                      : undefined
+                  }
+                  onProjects={() => navigate("home")}
                   settings={(clipId) => {
                     setSettingsReturn({ projectId: project.id, clipId });
                     navigate("settings");
@@ -344,6 +399,14 @@ export function StudioApp() {
           </div>
         )}
       </div>
+      {newProject && (
+        <NewProjectDialog
+          creating={creatingProject}
+          error={projectError}
+          onCreate={(kind) => void createTypedProject(kind)}
+          onClose={() => setNewProject(false)}
+        />
+      )}
       {activity && (
         <QueueActivity
           workspace={w}

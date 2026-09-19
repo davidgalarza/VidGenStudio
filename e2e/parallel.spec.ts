@@ -32,6 +32,12 @@ async function story(page: Page, count: number) {
     .locator(".home-page")
     .getByRole("button", { name: "Nuevo proyecto", exact: true })
     .click();
+  await page
+    .getByRole("button", { name: "Crear proyecto de historia", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Guion completo", { exact: true }),
+  ).toBeVisible();
   await page.evaluate(
     async ({ count, settings }) => {
       const db = await new Promise<IDBDatabase>((resolve) => {
@@ -106,7 +112,9 @@ async function story(page: Page, count: number) {
     { count, settings: DEFAULT_VIDEO },
   );
   await page.reload();
-  await page.getByRole("button", { name: "Historia", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Guion y escenas", exact: true })
+    .click();
   await expect(
     page.getByRole("article", { name: "Escena 1", exact: true }),
   ).toBeVisible();

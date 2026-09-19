@@ -6,12 +6,14 @@ import {
 import { openDB, type DBSchema } from "idb";
 import { makeSequenceItem } from "./timeline";
 import { makeStory, storyReferenceIds } from "./story";
+import { withProjectKind } from "./projectKind";
 import {
   sceneSettings,
   sequenceScenes,
   activeVersion,
   sceneBlob,
   type Project,
+  type ProjectKind,
   type SequenceItem,
   type AspectRatio,
   type Scene,
@@ -87,11 +89,13 @@ export async function readWorkspace() {
     db.getAll("narrations"),
   ]);
   return {
-    projects: projects.sort((a, b) =>
-      (b.updated_at || b.created_at).localeCompare(
-        a.updated_at || a.created_at,
+    projects: projects
+      .map(withProjectKind)
+      .sort((a, b) =>
+        (b.updated_at || b.created_at).localeCompare(
+          a.updated_at || a.created_at,
+        ),
       ),
-    ),
     scenes: scenes
       .filter((s) => !s.deleted_at)
       .sort((a, b) => a.order - b.order),
@@ -291,10 +295,14 @@ export async function createProject(
   name: string,
   drafts: { title: string; prompt: string }[],
   settings: VideoSettings,
+  kind: ProjectKind = "clips",
 ) {
+  if (kind !== "clips" && kind !== "story")
+    throw new Error("Elige un tipo de proyecto válido.");
   const db = await connection;
   const project: Project = {
     id: crypto.randomUUID(),
+    kind,
     name: name.trim() || "Proyecto sin título",
     sequence_ids: [],
     created_at: now(),
@@ -647,11 +655,15 @@ export async function createStory(projectId: string, story: Story) {
   const tx = db.transaction("projects", "readwrite");
   const project = await tx.store.get(projectId);
   if (!project) throw new Error("Proyecto no encontrado.");
+  if (project.kind === "clips")
+    throw new Error(
+      "Este es un proyecto de clips. Crea un proyecto de historia para trabajar desde un guion.",
+    );
   if (project.story)
     throw new Error(
       "Este proyecto ya tiene una historia. Puedes seguir editando sus escenas.",
     );
-  await tx.store.put({ ...project, story, updated_at: now() });
+  await tx.store.put({ ...project, kind: "story", story, updated_at: now() });
   await tx.done;
 }
 export async function setStoryError(projectId: string, error?: string) {

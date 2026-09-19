@@ -27,6 +27,8 @@ export interface SequenceItem {
 }
 export interface Project {
   id: string;
+  /** Missing on older projects; inferred without moving or deleting media. */
+  kind?: ProjectKind;
   name: string;
   created_at: string;
   updated_at?: string;
@@ -34,6 +36,12 @@ export interface Project {
   sequence_items?: SequenceItem[];
   sequence_aspect?: AspectRatio;
   story?: Story;
+}
+export type ProjectKind = "clips" | "story";
+export function projectKind(
+  project: Pick<Project, "kind" | "story">,
+): ProjectKind {
+  return project.kind || (project.story ? "story" : "clips");
 }
 export type StoryMode = "spoken" | "voiceover";
 export type StoryStyle =

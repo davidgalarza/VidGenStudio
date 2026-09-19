@@ -28,7 +28,9 @@ async function init(page: Page) {
     .locator(".home-page")
     .getByRole("button", { name: "Nuevo proyecto", exact: true })
     .click();
-  await page.getByRole("button", { name: "Historia", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Crear proyecto de historia", exact: true })
+    .click();
 }
 async function stored(page: Page) {
   return page.evaluate(async () => {
@@ -291,7 +293,9 @@ test("story voiceover covers script, resumes a failed plan without rebilling voi
   ).toBeVisible({ timeout: 15000 });
   expect(calls.speech).toBe(0);
   await page.reload();
-  await page.getByRole("button", { name: "Historia", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Guion y escenas", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Continuar propuesta", exact: true })
     .click();
@@ -313,7 +317,9 @@ test("story voiceover covers script, resumes a failed plan without rebilling voi
     .fill("Un primer plano muestra cómo la hoja convierte la luz en energía.");
   // Unsaved review edits survive refresh, and no media production occurs yet.
   await page.reload();
-  await page.getByRole("button", { name: "Historia", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Guion y escenas", exact: true })
+    .click();
   await expect(page.getByLabel("Visual de la escena 1")).toHaveValue(
     "Un primer plano muestra cómo la hoja convierte la luz en energía.",
   );
@@ -528,7 +534,9 @@ test("pauses production after the current audio, then resumes after reload witho
   let data = await stored(page);
   expect(data.narrations).toHaveLength(1);
   await page.reload();
-  await page.getByRole("button", { name: "Historia", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Guion y escenas", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Continuar producción", exact: true })
     .click();
@@ -600,7 +608,9 @@ test("initial guidance survives leaving the script and a review conflict offers 
     .fill("Explicación para niños, colores planos");
   await page.getByLabel("Crear también las referencias visuales").uncheck();
   await page.reload();
-  await page.getByRole("button", { name: "Historia", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Guion y escenas", exact: true })
+    .click();
   await page.locator(".story-preferences summary").click();
   await expect(page.getByLabel("Preferencia de estilo")).toHaveValue("cartoon");
   await expect(page.getByLabel("Lo que tienes en mente")).toHaveValue(
@@ -634,7 +644,9 @@ test("initial guidance survives leaving the script and a review conflict offers 
     database.close();
   });
   await page.reload();
-  await page.getByRole("button", { name: "Historia", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Guion y escenas", exact: true })
+    .click();
   await expect(
     page
       .getByRole("button", { name: "Producir historia", exact: true })
@@ -789,10 +801,15 @@ test("migrates version-one projects and media without creating a default clip", 
       }),
   );
   expect(version).toBe(2);
-  await page.getByRole("button", { name: "Historia", exact: true }).click();
-  await expect(page.getByLabel("Guion completo", { exact: true })).toHaveValue(
-    "",
-  );
+  await expect(
+    page.getByRole("button", { name: "Guion y escenas", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Historia", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Secuencia · 1", exact: true }),
+  ).toBeVisible();
   const data = await stored(page);
   expect(data.scenes).toHaveLength(1);
   expect(data.scenes[0].id).toBe("legacy-scene");
@@ -846,7 +863,9 @@ test("a long story identifies hidden speaker mismatches and repairs the affected
     database.close();
   }, DEFAULT_VIDEO);
   await page.reload();
-  await page.getByRole("button", { name: "Historia", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Guion y escenas", exact: true })
+    .click();
   const review = page.getByRole("region", { name: "Personajes por revisar" });
   await expect(review).toContainText(
     "3 escenas necesitan revisar su personaje",
@@ -1001,7 +1020,9 @@ test("content review preserves narration and references, persists only the accep
     after.scenes[0].prompt,
   );
   await page.reload();
-  await page.getByRole("button", { name: "Historia", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Guion y escenas", exact: true })
+    .click();
   await expect(scene.getByLabel("Imagen de la escena 1")).toHaveValue(
     "Un diagrama muestra rayos de luz llegando a las hojas de una planta.",
   );
