@@ -1,4 +1,8 @@
-import { cleanCharacterName, findStoryCharacter } from "./storyCast";
+import {
+  cleanCharacterName,
+  findStoryCharacter,
+  renameSourceSpeaker,
+} from "./storyCast";
 import {
   OMNI_MODEL,
   type Story,
@@ -47,6 +51,42 @@ export const storyStyles: { id: StoryStyle; label: string; prompt: string }[] =
       label: "Infografía animada",
       prompt:
         "Animated diagrams and visual metaphors, simple high-contrast shapes, legible hierarchy. Show relationships and processes progressively. Avoid dense text, invented statistics and illegible labels.",
+    },
+    {
+      id: "anime",
+      label: "Anime",
+      prompt:
+        "Japanese-inspired 2D animation, expressive facial acting, cinematic cel shading and painted backgrounds. Original character designs.",
+    },
+    {
+      id: "stopmotion",
+      label: "Stop motion",
+      prompt:
+        "Handcrafted stop-motion clay animation, tactile miniatures, visible material textures and deliberate expressive movement.",
+    },
+    {
+      id: "watercolor",
+      label: "Acuarela",
+      prompt:
+        "Animated watercolor illustration, translucent pigment, textured paper and fluid, gentle movement. Keep faces and action readable.",
+    },
+    {
+      id: "papercut",
+      label: "Papel recortado",
+      prompt:
+        "Layered paper-cut animation, tactile cut edges, dimensional paper scenery, coherent silhouettes and parallax.",
+    },
+    {
+      id: "pixel",
+      label: "Pixel art",
+      prompt:
+        "Crisp intentional pixel art animation, limited coherent palette, readable pixel characters and scenery, no smoothing.",
+    },
+    {
+      id: "comic",
+      label: "Novela gráfica",
+      prompt:
+        "Animated graphic novel, expressive ink outlines, bold shadow shapes, intentional limited colors and dramatic composition. No speech bubbles or printed words.",
     },
   ];
 export const maxStoryDuration = (settings: VideoSettings) =>
@@ -105,14 +145,7 @@ export function splitText(
 }
 // Speaker labels are metadata. Renaming a cast member must not change spoken words.
 export function renameSpeakerLabel(text: string, from: string, to: string) {
-  return text.replace(
-    /(^|\n)([ \t]*)([^:\n]+)(:[ \t]*)/g,
-    (whole, line, space, name, colon) =>
-      cleanCharacterName(name).toLocaleLowerCase() ===
-      cleanCharacterName(from).toLocaleLowerCase()
-        ? `${line}${space}${to}${colon}`
-        : whole,
-  );
+  return renameSourceSpeaker(text, from, to);
 }
 export function makeStory(config: StoryConfig): Story {
   if (!config.script.trim())
@@ -185,7 +218,39 @@ export function storyReferenceIds(
   story: StoryConfig,
   speaker?: string,
   names?: string[],
+  participants?: string[],
+  locationName?: string,
 ) {
+  if (participants !== undefined || locationName) {
+    const participantNames = participants?.length
+      ? participants
+      : speaker
+        ? [speaker]
+        : [];
+    const set = locationName
+      ? story.references?.find(
+          (r) => r.locationName === locationName && r.assetId,
+        )?.assetId
+      : undefined;
+    const characters = participantNames.flatMap(
+      (name) =>
+        story.characters.find((c) => c.name === name)?.referenceId || [],
+    );
+    const named = (names || []).flatMap(
+      (name) => story.references?.find((r) => r.name === name)?.assetId || [],
+    );
+    const style = story.references?.find(
+      (r) => r.type === "STYLE" && r.assetId,
+    )?.assetId;
+    return [
+      ...new Set([
+        ...characters.slice(0, set ? 2 : 3),
+        ...(set ? [set] : []),
+        ...named,
+        ...(style ? [style] : []),
+      ]),
+    ].slice(0, 3);
+  }
   if (names !== undefined)
     return [
       ...new Set(
@@ -267,11 +332,36 @@ export function alignNarration(
 }
 export function storyPrompt(
   story: StoryConfig,
-  scene: Pick<StoryScene, "text" | "speaker" | "visual">,
-  references = storyReferenceIds(story, scene.speaker),
+  scene: Pick<
+    StoryScene,
+    | "text"
+    | "speaker"
+    | "visual"
+    | "dialogue"
+    | "locationName"
+    | "participants"
+    | "shotMode"
+  >,
+  references = storyReferenceIds(
+    story,
+    scene.speaker,
+    undefined,
+    scene.participants,
+    scene.locationName,
+  ),
 ) {
   const style = storyStyles.find((s) => s.id === story.style)!.prompt;
+  const relevant = new Set(
+    scene.participants || scene.dialogue
+      ? [
+          ...(scene.participants || []),
+          ...(scene.dialogue || []).map((t) => t.speaker),
+          ...(scene.speaker ? [scene.speaker] : []),
+        ]
+      : [],
+  );
   const cast = story.characters
+    .filter((c) => !relevant.size || relevant.has(c.name))
     .map(
       (c) =>
         `${c.name}: appearance ${c.description || "keep the same appearance in every shot"}; voice ${c.voice || "natural, conversational, clear diction"}.`,
@@ -298,9 +388,17 @@ export function storyPrompt(
     cast &&
       `Fixed character and voice bible. Never change identities, accents, pitch or timbre between shots:\n${cast}`,
     guides,
+    scene.locationName &&
+      `Set continuity: ${scene.locationName}. ${story.references?.find((r) => r.locationName === scene.locationName)?.prompt || "Preserve the same architecture, positions, furnishings and light."}`,
+    scene.participants?.length &&
+      `Visible participants: ${scene.participants.join(", ")}. Characters without a dialogue turn remain silent, listen and react naturally.`,
     `Visual action: ${scene.visual}`,
+    scene.dialogue?.some((t) => t.action) &&
+      `Specific action beats for THIS shot only, in dialogue order. These are silent visual directions, never spoken words: ${JSON.stringify(scene.dialogue.map((t) => ({ speaker: t.speaker, action: t.action || "Continue naturally" })))}. The wider scene description is context; do not replay actions belonging to other shots.`,
     story.mode === "spoken"
-      ? `SPOKEN DIALOGUE: ${scene.speaker || story.characters[0]?.name || "The character"} says exactly the following, in its original language: ${JSON.stringify(scene.text.trim())}. Only this speaker talks in this shot. Natural lip sync, clearly audible speech, no additional dialogue or narration. Begin speaking promptly and finish every word before the end. Keep the same voice described above; do not rush. No subtitles or title cards.`
+      ? scene.dialogue?.length
+        ? `SPOKEN CONVERSATION, in this exact order, in the original language: ${JSON.stringify(scene.dialogue.map((t) => ({ speaker: t.speaker, words: t.text.trim(), delivery: t.direction || "Natural conversational delivery" })))}. Each character says ONLY their own words; never speak names, instructions or delivery notes. One voice at a time, no overlap. Match each voice to its visible speaker and synchronize lips. Listeners react silently. Begin promptly, allow natural turn-taking, finish every word. No extra dialogue, narration, subtitles or title cards. ${scene.shotMode === "shared" ? "Keep the characters together in one continuous shared composition." : scene.shotMode === "alternating" ? "Focus on the current speaker, maintain eyelines and spatial continuity." : "Use a clear, stable composition that makes the conversation easy to follow."}`
+        : `SPOKEN DIALOGUE: ${scene.speaker || story.characters[0]?.name || "The character"} says exactly the following, in its original language: ${JSON.stringify(scene.text.trim())}. Only this speaker talks in this shot. Natural lip sync, clearly audible speech, no additional dialogue or narration. Begin speaking promptly and finish every word before the end. Keep the same voice described above; do not rush. No subtitles or title cards.`
       : `This shot accompanies the following separate voiceover: ${JSON.stringify(scene.text.trim())}. Illustrate its meaning precisely. NO spoken dialogue, NO narration, NO music, NO text overlays. The voiceover will be added separately. Show the action throughout the shot, with no fade to black.`,
   ]
     .filter(Boolean)

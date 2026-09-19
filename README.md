@@ -10,7 +10,9 @@ Este proyecto es un fork independiente de [Video Orchestrator, de Rajjit Laishra
 
 ## Qué incluye
 
-- **Proyectos de historia:** pega un guion y Gemini propone escenas, personajes, voces y referencias con Nano Banana. Revisa el plan y produce vídeos con diálogo o voz en off de Gemini TTS, usando una sola clave de Google. [Cómo funciona](docs/story.md).
+- **Proyectos de historia:** pega solo lo que se escuchará: un monólogo, una conversación con nombres o una narración. Gemini propone escenas, personajes, voces, lugares y referencias con Nano Banana. Revisa el plan y produce con una sola clave de Google. [Cómo funciona](docs/story.md).
+- **Conversaciones editables:** varias intervenciones por escena, personajes hablando y oyentes, interpretación y acciones por turno. Elige tomas automáticas, compartidas o alternadas; regenera una toma conservando las versiones anteriores. La revisión opcional con Gemini compara una transcripción con el diálogo previsto.
+- **Dirección visual:** doce estilos con muestras ilustrativas y referencias reutilizables de personajes, escenarios y objetos. Todo es editable antes de producir; no son plantillas de contenido.
 - **Dos tipos de proyecto:** Clips para generar y editar tomas independientes; Historia para trabajar desde un guion, con sus materiales y montaje. Ambos empiezan vacíos, sin plantillas ni tomas automáticas.
 - **Generación con Google:** integración con Gemini Omni 1.1 Flash y Veo 3.1, referencias visuales y generación de imágenes de referencia.
 - **Cola paralela persistente:** hasta 3 vídeos a la vez por defecto (ajustable de 1 a 4), tandas de 1 a 20 clips independientes y recuperación múltiple tras recargar.
@@ -47,6 +49,7 @@ Consulta la [guía de despliegue](docs/deployment.md) para instalación, comprob
 
 - **Almacenamiento local:** no hay sincronización, cuentas ni copia de seguridad de proyectos. Cambiar de navegador, dominio o puerto cambia el almacenamiento accesible. Descargar un ZIP no crea un proyecto reimportable.
 - **Generación remota:** los prompts y referencias enviados se procesan en Google. Pausar el seguimiento no cancela necesariamente su procesamiento o facturación.
+- **Diálogo generado:** las descripciones de voz y las referencias ayudan a la continuidad, pero no garantizan voces idénticas ni palabras exactas. La revisión opcional envía una toma a Gemini, consume cuota y puede equivocarse; no regenera vídeos automáticamente. La voz en off usa Gemini TTS.
 - **Montaje de una pista:** cortes directos, sin títulos, transiciones ni pistas de música independientes. No incluye importación general de vídeos externos como clips.
 - **Escalado convencional:** Lanczos aumenta las dimensiones; no reconstruye detalle mediante IA.
 - **Recursos del dispositivo:** la exportación necesita memoria, CPU y aislamiento entre orígenes. Mantén abierta la pestaña. Para montajes grandes, descarga los originales y usa un editor local.
@@ -78,5 +81,7 @@ Las pruebas de navegador usan respuestas de Google simuladas y vídeos sintétic
 ## Licencia y créditos
 
 El código de la aplicación conserva la [licencia MIT original](LICENSE), con copyright de Rajjit Laishram. Las mejoras de este fork se registran en [CHANGELOG.md](CHANGELOG.md) y en el historial de Git.
+
+Las muestras de los doce estilos proceden de una imagen generada con IA para esta interfaz. Su finalidad es ilustrativa; consulta la [procedencia del recurso](src/assets/README.md). No son resultados de una generación real de Historia ni imágenes de referencia que se envíen automáticamente al proveedor.
 
 El núcleo FFmpeg distribuido con la aplicación tiene licencia **GPL-2.0-or-later**, independiente de la licencia declarada para el código de la aplicación. Consulta [avisos de terceros](THIRD_PARTY_NOTICES.md), el [texto incluido](public/licenses/FFmpeg-GPL-2.0.txt) y la documentación de sus componentes antes de redistribuir binarios.

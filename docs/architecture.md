@@ -26,20 +26,23 @@ flowchart LR
 
 ## Mapa del código
 
-| Área                    | Archivos                                                                            | Responsabilidad                                                           |
-| ----------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Entrada y navegación    | `src/main.tsx`, `src/ui/StudioApp.tsx`                                              | Montaje de React, rutas por hash, proyectos y vistas                      |
-| Contratos de datos      | `src/types.ts`                                                                      | Proyectos, clips, versiones, referencias, solicitudes y tomas del montaje |
-| Persistencia            | `src/lib/storage.ts`, `src/lib/settings.ts`                                         | IndexedDB, operaciones de almacenamiento, clave y preferencias            |
-| Orquestación            | `src/lib/useWorkspace.ts`                                                           | Cola paralela acotada, solicitudes, pausa, recuperación y notificaciones  |
-| Google                  | `src/lib/google.ts`, `src/lib/referenceImages.ts`                                   | REST, validación, respuestas, descargas y preparación de referencias      |
-| Biblioteca y generación | `src/ui/ProjectWorkspace.tsx`, `src/ui/Editor.tsx`                                  | Revisión de clips y modal de generación/edición/extensión                 |
-| Referencias             | `src/ui/ReferencePicker.tsx`, `src/ui/VideoReferences.tsx`                          | Selección visual, cargas y roles                                          |
-| Montaje                 | `src/lib/timeline.ts`, `src/ui/SequenceEditor.tsx`                                  | Resolución temporal, recortes, historial local y reproducción             |
-| Miniaturas              | `src/ui/SequenceFilmstrip.tsx`                                                      | Muestreo local, caché por Blob y carga cercana al área visible            |
-| Procesamiento           | `src/lib/videoEngine.ts`, `src/lib/export.ts`                                       | Worker exclusivo, FFmpeg, escalado, cortes y concatenación                |
-| Descargas               | `src/lib/archive.ts`, `src/ui/DownloadDialog.tsx`, `src/ui/VideoDownloadDialog.tsx` | Nombres, ZIP, manifiesto opcional y selección de resolución               |
-| Presentación            | `src/ui/studio.css`, `src/ui/sequence.css`, `DESIGN.md`                             | Sistema visual y adaptación de pantallas                                  |
+| Área                    | Archivos                                                                             | Responsabilidad                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Entrada y navegación    | `src/main.tsx`, `src/ui/StudioApp.tsx`                                               | Montaje de React, rutas por hash, proyectos y vistas                                      |
+| Contratos de datos      | `src/types.ts`                                                                       | Proyectos, clips, versiones, referencias, solicitudes y tomas del montaje                 |
+| Persistencia            | `src/lib/storage.ts`, `src/lib/settings.ts`                                          | IndexedDB, operaciones de almacenamiento, clave y preferencias                            |
+| Orquestación            | `src/lib/useWorkspace.ts`                                                            | Cola paralela acotada, solicitudes, pausa, recuperación y notificaciones                  |
+| Google                  | `src/lib/google.ts`, `src/lib/referenceImages.ts`                                    | REST, validación, respuestas, descargas y preparación de referencias                      |
+| Biblioteca y generación | `src/ui/ProjectWorkspace.tsx`, `src/ui/Editor.tsx`                                   | Revisión de clips y modal de generación/edición/extensión                                 |
+| Referencias             | `src/ui/ReferencePicker.tsx`, `src/ui/VideoReferences.tsx`                           | Selección visual, cargas y roles                                                          |
+| Historia y diálogo      | `src/lib/storyPlanner.ts`, `src/lib/storyDialogue.ts`, `src/lib/storyService.ts`     | Planificación por rangos, reparto determinista de intervenciones y preparación persistida |
+| Edición de Historia     | `src/ui/StoryEditor.tsx`, `src/ui/DialogueEditor.tsx`, `src/ui/StoryStylePicker.tsx` | Texto libre, conversaciones, puesta en escena y galería de estilos                        |
+| Revisión de diálogo     | `src/lib/dialogueReview.ts`, `src/ui/DialogueReview.tsx`                             | Análisis multimodal opcional de una toma y comparación local de la transcripción          |
+| Montaje                 | `src/lib/timeline.ts`, `src/ui/SequenceEditor.tsx`                                   | Resolución temporal, recortes, historial local y reproducción                             |
+| Miniaturas              | `src/ui/SequenceFilmstrip.tsx`                                                       | Muestreo local, caché por Blob y carga cercana al área visible                            |
+| Procesamiento           | `src/lib/videoEngine.ts`, `src/lib/export.ts`                                        | Worker exclusivo, FFmpeg, escalado, cortes y concatenación                                |
+| Descargas               | `src/lib/archive.ts`, `src/ui/DownloadDialog.tsx`, `src/ui/VideoDownloadDialog.tsx`  | Nombres, ZIP, manifiesto opcional y selección de resolución                               |
+| Presentación            | `src/ui/studio.css`, `src/ui/sequence.css`, `DESIGN.md`                              | Sistema visual y adaptación de pantallas                                                  |
 
 ## Persistencia y compatibilidad
 
@@ -64,6 +67,16 @@ IndexedDB conserva el nombre `vid-gen-studio`, versión de esquema 2, y los alma
 ## Preparación de historias
 
 `src/lib/story.ts` segmenta texto y construye prompts; `storyPlanner.ts` pide propuestas estructuradas y valida la cobertura literal del guion. `storyService.ts` guarda el avance de planificación, referencias y producción; `geminiSpeech.ts` encapsula Gemini TTS, convierte PCM en WAV y detecta pausas acústicas. El proyecto pasa por planificación, revisión, producción y preparación completa; esta última indica que los vídeos pueden estar todavía en cola. Las revisiones se guardan con control de versión. No se sintetizan tiempos por palabra. `src/ui/StoryEditor.tsx` contiene el guion y el guion gráfico. El controlador mantiene la preparación fuera de la vista, con bloqueo entre pestañas y pausa tras la petición actual. La cola existente genera las escenas en su propio registro y añade versiones. Más detalles en [Historia](story.md).
+
+La jerarquía de personajes hablando es `StoryBlock` (escena narrativa) → `DialogueTurn` (intervención) → `Scene` (clip o toma). Cada intervención tiene `speaker`, `text`, `direction` y `action`; las dos últimas son indicaciones opcionales, separadas de las palabras. Los bloques añaden `participants`, `locationName` y `shotMode`. El planificador devuelve rangos de unidades de origen para cada intervención; la aplicación reconstruye el texto y comprueba cobertura y hablantes. Un monólogo sin etiquetas puede recibir un único personaje propuesto por Gemini. En voz en off se conserva el texto literal, sin interpretar etiquetas como reparto.
+
+`storyDialogue.ts` reconoce las etiquetas de personajes, mantiene el orden y calcula las tomas con una estimación de palabras, caracteres y pausas. `auto` agrupa hasta dos hablantes y tres intervenciones mientras quepan; `shared` mantiene el encuadre compartido solicitado dentro del límite temporal; `alternating` separa por hablante. Las intervenciones largas se dividen sin resumir su texto. La cobertura del plan se comprueba localmente; no demuestra que el modelo de vídeo pronuncie cada palabra. `dialogueSource` vincula el diálogo estructurado al texto que lo originó: si cambia el texto libre, se vuelve a interpretar en lugar de reutilizar intervenciones obsoletas.
+
+Los campos nuevos de `StoryBlock`, `StoryScene` y `StoryReference` son opcionales. Los proyectos anteriores con `speaker` y `text` se siguen leyendo sin migración del esquema ni sustitución de medios. Los escenarios son referencias `PRODUCT` con `locationName`, no un nuevo tipo global de `Asset`. Nano Banana recibe la descripción del escenario vacío. La selección automática reparte los tres espacios de referencia entre personajes presentes y el lugar; `storyPrompt` conserva las descripciones de reparto, oyentes, actuación y continuidad espacial. Las tomas resultantes son solicitudes independientes de la cola existente, no una cadena de extensiones ni una garantía de continuidad de voz.
+
+`StoryEditor` agrupa la producción por bloque narrativo y conserva edición y regeneración por toma. `DialogueEditor` separa palabras, interpretación y acciones y permite revisar las tomas previstas. `StoryStylePicker` usa el atlas local `src/assets/story-styles.png` para doce muestras ilustrativas: selecciona instrucciones de estilo, no carga esas muestras como referencias para Google.
+
+La revisión opcional del diálogo envía un único vídeo de hasta `14 * 1024 * 1024` bytes y las descripciones del reparto a `storyJSON`. No envía las palabras esperadas, para no orientar la transcripción. `compareDialogue` compara después los hablantes y las palabras localmente, normaliza mayúsculas y puntuación y agrupa fragmentos contiguos del mismo hablante. Una respuesta incierta nunca se presenta como coincidencia. El resultado vive en el estado del componente, ligado a la versión y el prompt; no se persiste ni dispara regeneraciones. La transcripción y la identificación de voces pueden ser incorrectas.
 
 ## Ciclo de generación
 
@@ -99,6 +112,8 @@ El motor FFmpeg se importa bajo demanda y solo admite un trabajo a la vez. Cance
 Los clips individuales en resolución Original conservan sus bytes. El escalado transcodifica el vídeo con Lanczos y conserva el audio por copia. Un montaje aplica los puntos de entrada/salida y el volumen, encaja cada toma en el formato elegido, normaliza a H.264/AAC y 24 fps, y concatena los resultados. Una toma recortada también pasa por ese proceso aunque sea la única.
 
 El ZIP contiene medios y un manifiesto opcional; no es un formato de copia de seguridad ni una vía de importación al editor.
+
+El ZIP **Voz y guion** de Historia conserva `guion-original.txt` y `escenas.json` (`vidgen-story-materials-v2`). Cada toma exporta además `dialogue`, `participants` y `location` cuando existen, junto a texto, imagen prevista y rangos de audio. Los consumidores del manifiesto deben aceptar que esos campos falten en proyectos anteriores. La revisión temporal de diálogo no forma parte de la exportación.
 
 ## Límites de diseño
 

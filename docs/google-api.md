@@ -6,13 +6,14 @@ Esta guía describe lo que **implementa el repositorio**, no una garantía de di
 
 ## Modelos y límites implementados
 
-| Uso                   | Identificador enviado          | Opciones admitidas por la aplicación                                                    |
-| --------------------- | ------------------------------ | --------------------------------------------------------------------------------------- |
-| Vídeo Omni            | `gemini-omni-1.1-flash`        | Generación de 3–10 segundos, enteros; 9:16/16:9; 360p, 720p, 1080p y 4k                 |
-| Vídeo Veo             | `veo-3.1-generate-preview`     | 4, 6 u 8 segundos en 720p; 8 segundos en 1080p; 9:16/16:9                               |
-| Plan de Historia      | `gemini-3.8-flash`             | JSON estructurado: escenas, reparto, voz, estilo y referencias; conserva el guion local |
-| Voz de Historia       | `gemini-3.1-flash-tts-preview` | PCM mono, 30 voces, dirección de voz por texto; se guarda como WAV                      |
-| Referencias generadas | `gemini-3.1-flash-image`       | Nano Banana; referencias de Historia con Interactions, 16:9 y 1K                        |
+| Uso                   | Identificador enviado          | Opciones admitidas por la aplicación                                                                             |
+| --------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Vídeo Omni            | `gemini-omni-1.1-flash`        | Generación de 3–10 segundos, enteros; 9:16/16:9; 360p, 720p, 1080p y 4k                                          |
+| Vídeo Veo             | `veo-3.1-generate-preview`     | 4, 6 u 8 segundos en 720p; 8 segundos en 1080p; 9:16/16:9                                                        |
+| Plan de Historia      | `gemini-3.8-flash`             | JSON estructurado: escenas, intervenciones, reparto, lugares, voz, estilo y referencias; conserva el guion local |
+| Revisión de diálogo   | `gemini-3.8-flash`             | Análisis opcional de una toma de hasta 14 MB y transcripción estructurada                                        |
+| Voz de Historia       | `gemini-3.1-flash-tts-preview` | PCM mono, 30 voces, dirección de voz por texto; se guarda como WAV                                               |
+| Referencias generadas | `gemini-3.1-flash-image`       | Nano Banana; referencias de Historia con Interactions, 16:9 y 1K                                                 |
 
 Las guías de personaje/objeto/estilo y la edición/extensión de vídeo utilizan Omni en esta interfaz. Veo admite fotogramas inicial y final; un final requiere un inicial. Omni también requiere ese orden y la UI limita las guías visuales a tres.
 
@@ -27,6 +28,12 @@ Las generaciones Omni en 360p/720p omiten la entrega por URI. Las de 1080p/4k y 
 Antes de enviar referencias, `prepareReferenceImages` crea copias JPEG RGB, reduce la dimensión máxima a 2048 px, rellena transparencias con blanco y verifica un máximo de 4 MB por copia. No modifica las imágenes originales ni la captura persistida de la solicitud.
 
 Para Historia, la propuesta, las referencias y la voz usan Interactions con la misma clave. Los contratos y las diferencias entre preparación y producción están en [Modo Historia](story.md). TTS no proporciona alineación de palabras en esta integración; el montaje usa duración medida y pausas acústicas.
+
+El planificador de Historia recibe unidades numeradas del texto libre. Devuelve rangos de escenas e intervenciones, personajes, participantes, escenarios y dirección visual; el código reconstruye las palabras a partir del origen. `storyDialogue.ts` divide después el diálogo entre los límites de vídeo solicitados. Los prompts pueden incluir varios hablantes en una toma, oyentes silenciosos, acciones por intervención y un escenario compartido. Son instrucciones para el modelo: no garantizan palabras exactas, sincronización labial ni identidad de voz constante. Esta integración no envía referencias de audio ni realiza clonación de voz. Las tomas de Historia se generan de forma independiente y pueden entrar en la cola paralela.
+
+Los escenarios reutilizables se generan con Nano Banana como lugares vacíos. Su `locationName` enlaza el plan con una referencia local; los tres espacios de guía de Omni se reparten entre el reparto presente y el lugar. Los doce estilos disponibles son instrucciones del prompt. Las imágenes del selector son ilustraciones de la aplicación y no se adjuntan automáticamente a las solicitudes.
+
+**Revisar diálogo** usa Interactions con contenido de texto y vídeo en base64. Envía las descripciones del reparto y el vídeo, con un límite local de `14 * 1024 * 1024` bytes, y solicita `turns`, `notes` y `uncertain`. No incluye las palabras previstas: la comparación ocurre localmente tras la transcripción. Se valida la estructura de la respuesta y no se genera ningún vídeo como consecuencia del análisis. Cada análisis o repetición requiere una acción explícita y consume cuota; las observaciones y la transcripción pueden equivocarse. Este límite es una decisión de la aplicación, no una declaración del máximo general de la API.
 
 ## Seguimiento y recuperación
 

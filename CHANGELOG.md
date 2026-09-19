@@ -11,6 +11,9 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 
 ### Añadido
 
+- Conversaciones con varios personajes dentro de una escena: intervenciones editables, interpretación, acciones, oyentes y tomas automáticas, compartidas o alternadas. La entrada sigue siendo texto libre.
+- Escenarios vacíos generados con Nano Banana como referencias reutilizables y galería visual de doce estilos.
+- Revisión opcional del diálogo con Gemini: transcripción, comparación de palabras y hablantes y observaciones, sin regeneraciones automáticas.
 - Generación paralela de clips e historias: 3 solicitudes simultáneas por defecto, ajuste de 1 a 4, progreso por escena, recuperación múltiple y reducción automática a 1 tras un límite de cuota.
 
 - Revisión de descripciones con Gemini para generaciones bloqueadas por contenido: propuesta visible, alternativas señaladas, aplicación manual y reintento con el texto actualizado, sin regenerar la narración ni modificar referencias.
@@ -29,6 +32,7 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 
 ### Cambiado
 
+- Producción de Historia agrupada por escena narrativa, con correcciones por toma, versiones anteriores conservadas y actualización de referencias automáticas al cambiar de hablante.
 - Historia empieza por el guion: Gemini completa una propuesta editable de escenas, reparto, voces y referencias de Nano Banana antes de producir.
 - Gemini TTS sustituye ElevenLabs con la misma clave de Google; WAV con duración real y cortes por pausas, sin inventar tiempos por palabra. Los audios antiguos se conservan.
 - Revisiones persistidas, edición de escenas y referencias, planificación por lotes y recuperación de trabajo guardado.
@@ -40,6 +44,7 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 
 ### Corregido
 
+- Validación de hablantes y rangos del guion, continuidad del personaje entre lotes y foco en la intervención concreta que necesita texto. Las etiquetas con negritas o guiones se pueden renombrar sin alterar las palabras pronunciadas.
 - Reconocimiento de nombres de personaje en Historia y selectores sin asignaciones engañosas. Los errores identifican escenas concretas y permiten corregir nombres en grupo.
 
 - Tratamiento de fallos terminales de archivos de Google y reintento explícito.

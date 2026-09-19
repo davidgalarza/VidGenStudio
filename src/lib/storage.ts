@@ -5,8 +5,9 @@ import {
 } from "./storyCast";
 import { openDB, type DBSchema } from "idb";
 import { makeSequenceItem } from "./timeline";
-import { makeStory, storyReferenceIds } from "./story";
+import { storyReferenceIds } from "./story";
 import { withProjectKind } from "./projectKind";
+import { blockDialogue, planDialogueShots } from "./storyDialogue";
 import {
   sceneSettings,
   sequenceScenes,
@@ -716,6 +717,8 @@ export async function createStoryScenes(
         project.story,
         draft.story.speaker,
         block.referenceNames,
+        draft.story.participants,
+        block.locationName,
       );
     const scene: Scene = {
       ...makeScene(projectId, order++, {
@@ -725,7 +728,18 @@ export async function createStoryScenes(
       title: block.title
         ? `${block.title}${drafts.length > 1 ? ` · ${scenes.length + 1}/${drafts.length}` : ""}`
         : `Escena ${all.filter((s) => s.story).length + scenes.length + 1}`,
-      story: draft.story,
+      story: {
+        ...draft.story,
+        autoReferenceIds:
+          block.referenceIds === undefined
+            ? references.slice(
+                0,
+                project.story.settings.model === "gemini-omni-1.1-flash"
+                  ? 3
+                  : 1,
+              )
+            : undefined,
+      },
       reference_asset_ids:
         project.story.settings.model === "gemini-omni-1.1-flash"
           ? references
@@ -820,7 +834,9 @@ export async function saveStoryDraft(projectId: string, story: Story) {
     if (issue) throw new Error(castIssueMessage(issue));
     for (const [index, block] of story.blocks.entries()) {
       try {
-        makeStory({ ...story, script: block.text });
+        if (!blockDialogue(story, block).length)
+          throw new Error("Añade al menos una intervención con texto.");
+        planDialogueShots(story, block);
       } catch (e) {
         throw new Error(
           `Escena ${index + 1} · ${block.title || "Sin título"}: ${e instanceof Error ? e.message : "Revisa el personaje."}`,
@@ -897,7 +913,8 @@ export async function savePendingStoryBlocks(
       throw new Error(
         "Cada parte necesita una descripción visual y entre 1 y 3.000 caracteres de texto.",
       );
-    if (story.mode === "spoken") makeStory({ ...story, script: change.text });
+    if (story.mode === "spoken")
+      planDialogueShots(story, { ...block, ...change });
   }
   return saveStoryState(
     projectId,

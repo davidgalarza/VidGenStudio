@@ -33,6 +33,7 @@ import {
   type StoryBlock,
   type Scene,
   type Narration,
+  type DialogueTurn,
 } from "../types";
 import type { WorkspaceController } from "../lib/useWorkspace";
 import * as db from "../lib/storage";
@@ -61,6 +62,19 @@ import {
   castIssueMessage,
 } from "../lib/storyCast";
 import { ReferencePicker } from "./ReferencePicker";
+import { StoryStylePicker } from "./StoryStylePicker";
+import {
+  DialogueEditor,
+  SceneConversation,
+  SceneStaging,
+} from "./DialogueEditor";
+import { DialogueReview } from "./DialogueReview";
+import {
+  blockDialogue,
+  dialoguePatch,
+  dialogueSeconds,
+  planDialogueShots,
+} from "../lib/storyDialogue";
 import "./story.css";
 function NarrationAudition({
   scene,
@@ -123,6 +137,7 @@ function StorySceneCard({
 }) {
   const [visual, setVisual] = useState(scene.story!.visual);
   const [dialogue, setDialogue] = useState(scene.story!.text);
+  const [turns, setTurns] = useState(scene.story!.dialogue);
   const [saving, setSaving] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const busy =
@@ -131,21 +146,31 @@ function StorySceneCard({
     w.queue.some((q) => q.sceneId === scene.id);
   const ready = !!sceneBlob(scene);
   const dirty =
-    visual !== scene.story!.visual || dialogue !== scene.story!.text;
+    visual !== scene.story!.visual ||
+    dialogue !== scene.story!.text ||
+    JSON.stringify(turns) !== JSON.stringify(scene.story!.dialogue);
   async function save(nextVisual = visual, reviewed = false) {
     if (
       !nextVisual.trim() ||
-      (config.mode === "spoken" && !dialogue.trim()) ||
+      (config.mode === "spoken" &&
+        (turns
+          ? turns.some(
+              (t) =>
+                !t.text.trim() ||
+                !config.characters.some((c) => c.name === t.speaker),
+            )
+          : !dialogue.trim())) ||
       saving
     )
       return false;
     setSaving(true);
     try {
-      const spokenSeconds =
-        Math.max(
-          dialogue.trim().split(/\s+/).length / 2,
-          dialogue.length / 11,
-        ) + 1.5;
+      const spokenSeconds = turns
+        ? dialogueSeconds(turns)
+        : Math.max(
+            dialogue.trim().split(/\s+/).length / 2,
+            dialogue.length / 11,
+          ) + 1.5;
       if (
         !reviewed &&
         config.mode === "spoken" &&
@@ -156,21 +181,69 @@ function StorySceneCard({
         );
       const story = {
         ...scene.story!,
-        text: reviewed ? scene.story!.text : dialogue,
+        text: reviewed
+          ? scene.story!.text
+          : turns
+            ? turns.map((t) => t.text).join("\n")
+            : dialogue,
+        dialogue: reviewed ? scene.story!.dialogue : turns,
+        speaker: reviewed
+          ? scene.story!.speaker
+          : turns
+            ? new Set(turns.map((t) => t.speaker)).size === 1
+              ? turns[0].speaker
+              : undefined
+            : scene.story!.speaker,
+        participants: reviewed
+          ? scene.story!.participants
+          : turns
+            ? [
+                ...new Set([
+                  ...turns.map((t) => t.speaker),
+                  ...(scene.story!.participants || []).filter(
+                    (name) =>
+                      !scene.story!.dialogue?.some((t) => t.speaker === name),
+                  ),
+                ]),
+              ]
+            : scene.story!.participants,
         visual: nextVisual.trim(),
         planned: true,
       };
-      const prompt = storyPrompt(
-        config,
-        story,
-        scene.reference_asset_ids?.length
-          ? scene.reference_asset_ids
-          : scene.first_frame_asset_id
-            ? [scene.first_frame_asset_id]
-            : [],
-      );
+      let referenceIds = scene.reference_asset_ids?.length
+        ? scene.reference_asset_ids
+        : scene.first_frame_asset_id
+          ? [scene.first_frame_asset_id]
+          : [];
+      const automatic =
+        scene.story!.autoReferenceIds !== undefined &&
+        JSON.stringify(referenceIds) ===
+          JSON.stringify(scene.story!.autoReferenceIds) &&
+        JSON.stringify(turns?.map((t) => t.speaker)) !==
+          JSON.stringify(scene.story!.dialogue?.map((t) => t.speaker));
+      if (!reviewed && automatic) {
+        referenceIds = storyReferenceIds(
+          config,
+          story.speaker,
+          undefined,
+          story.participants,
+          story.locationName,
+        ).slice(0, config.settings.model === OMNI_MODEL ? 3 : 1);
+        story.autoReferenceIds = referenceIds;
+      }
+      const prompt = storyPrompt(config, story, referenceIds);
       await w.patch(scene.id, {
         story,
+        ...(!reviewed && automatic
+          ? {
+              reference_asset_ids:
+                config.settings.model === OMNI_MODEL ? referenceIds : [],
+              first_frame_asset_id:
+                config.settings.model !== OMNI_MODEL
+                  ? referenceIds[0]
+                  : undefined,
+            }
+          : {}),
         ...(reviewed
           ? {
               error: undefined,
@@ -201,6 +274,7 @@ function StorySceneCard({
           : {}),
       });
       setVisual(story.visual);
+      if (!reviewed) setDialogue(story.text);
       return true;
     } catch (e) {
       w.notify(
@@ -227,8 +301,18 @@ function StorySceneCard({
             ? "Lista para generar"
             : "Por preparar";
   return (
-    <article className="story-scene" aria-label={`Escena ${index + 1}`}>
-      <div className="story-scene-media">
+    <article
+      className={`story-scene ${turns ? "has-dialogue" : ""}`}
+      aria-label={`Escena ${index + 1}`}
+    >
+      <div
+        className="story-scene-media"
+        style={
+          turns
+            ? { aspectRatio: scene.settings?.aspectRatio.replace(":", " / ") }
+            : undefined
+        }
+      >
         <Clip blob={sceneBlob(scene)} controls />
         <span className="story-shot-number">
           {String(index + 1).padStart(2, "0")}
@@ -247,11 +331,26 @@ function StorySceneCard({
             {status}
           </span>
         </div>
-        <div className="story-script-excerpt">
-          <span>
-            {config.mode === "spoken" ? scene.story!.speaker : "Voz en off"}
-          </span>
-          {config.mode === "spoken" ? (
+        <div
+          className={
+            turns ? "story-conversation-excerpt" : "story-script-excerpt"
+          }
+        >
+          {!turns && (
+            <span>
+              {config.mode === "spoken" ? scene.story!.speaker : "Voz en off"}
+            </span>
+          )}
+          {config.mode === "spoken" && turns ? (
+            <DialogueEditor
+              turns={turns}
+              config={config}
+              assets={w.assets}
+              label={`la toma ${index + 1}`}
+              disabled={busy}
+              onChange={setTurns}
+            />
+          ) : config.mode === "spoken" ? (
             <textarea
               aria-label={`Diálogo de la escena ${index + 1}`}
               value={dialogue}
@@ -263,7 +362,7 @@ function StorySceneCard({
             <p>{scene.story!.text.trim() || "Pausa de la narración"}</p>
           )}
         </div>
-        {scene.story!.part && (
+        {scene.story!.part && config.mode === "voiceover" && (
           <p className="hint">
             Tramo {scene.story!.part.index} de {scene.story!.part.total} de la
             misma narración. El texto corresponde a la escena completa.
@@ -330,6 +429,24 @@ function StorySceneCard({
             </select>
           </label>
         )}
+        {ready && config.mode === "spoken" && (
+          <DialogueReview
+            key={`${activeVersion(scene)?.id || scene.updated_at}:${scene.prompt}`}
+            blob={sceneBlob(scene)!}
+            turns={
+              scene.story!.dialogue || [
+                {
+                  id: scene.id,
+                  speaker:
+                    scene.story!.speaker || config.characters[0]?.name || "",
+                  text: scene.story!.text,
+                },
+              ]
+            }
+            config={config}
+            disabled={busy || saving || dirty}
+          />
+        )}
         <div className="story-scene-actions">
           {dirty ? (
             <button
@@ -337,7 +454,10 @@ function StorySceneCard({
               disabled={
                 saving ||
                 !visual.trim() ||
-                (config.mode === "spoken" && !dialogue.trim()) ||
+                (config.mode === "spoken" &&
+                  (turns
+                    ? turns.some((t) => !t.text.trim())
+                    : !dialogue.trim())) ||
                 busy
               }
               onClick={() => void save()}
@@ -359,7 +479,9 @@ function StorySceneCard({
               {scene.task?.remoteId
                 ? "Recuperar resultado"
                 : ready
-                  ? "Regenerar imagen"
+                  ? config.mode === "spoken"
+                    ? "Regenerar toma"
+                    : "Regenerar imagen"
                   : "Generar escena"}
             </button>
           )}
@@ -456,9 +578,31 @@ function ScriptEntry({
         <BookOpen size={26} strokeWidth={1.5} />
         <h2>Empieza por lo que quieres contar.</h2>
         <p>
-          Pega tu guion. Gemini propone las escenas, el estilo, los personajes y
-          las referencias. Tú tienes la última palabra.
+          Pega lo que se escuchará. Gemini organiza la historia, los personajes,
+          los lugares y las tomas. Todo queda editable antes de producir.
         </p>
+      </div>
+      <div className="story-entry-direction">
+        <label>
+          Cómo se escucha
+          <select
+            aria-label="Preferencia de narración"
+            value={mode}
+            onChange={(e) => setMode(e.target.value as StoryMode | "")}
+          >
+            <option value="">Que Gemini lo proponga</option>
+            <option value="spoken">Personajes hablando</option>
+            <option value="voiceover">Voz en off · Gemini TTS</option>
+          </select>
+          <small>
+            {mode === "spoken"
+              ? "Un personaje: pega sus palabras. Varios: indica quién dice cada parte."
+              : mode === "voiceover"
+                ? "Pega exactamente lo que leerá la voz. La IA crea las imágenes que lo acompañan."
+                : "Pega un monólogo, una conversación o una narración; la IA propone cómo contarlo."}
+          </small>
+        </label>
+        <StoryStylePicker value={style} onChange={setStyle} automatic />
       </div>
       <label className="story-script-label">
         Guion completo
@@ -468,7 +612,11 @@ function ScriptEntry({
           rows={10}
           value={script}
           onChange={(e) => setScript(e.target.value)}
-          placeholder="Escribe o pega aquí lo que se escuchará en tu historia…"
+          placeholder={
+            mode === "spoken"
+              ? "Pega un monólogo, sin más indicaciones.\n\nSi hay varios personajes:\nAna: ¿Qué hay detrás de esa puerta?\nLeo: Vamos a descubrirlo."
+              : "Escribe o pega aquí lo que se escuchará en tu historia…"
+          }
         />
       </label>
       <div className="story-script-meta">
@@ -482,35 +630,6 @@ function ScriptEntry({
           <Settings2 size={15} />
           Dar indicaciones <span>opcional</span>
         </summary>
-        <div className="field-row">
-          <label>
-            Narración
-            <select
-              aria-label="Preferencia de narración"
-              value={mode}
-              onChange={(e) => setMode(e.target.value as StoryMode | "")}
-            >
-              <option value="">Que Gemini lo proponga</option>
-              <option value="voiceover">Voz en off · Gemini TTS</option>
-              <option value="spoken">Personajes hablando</option>
-            </select>
-          </label>
-          <label>
-            Estilo
-            <select
-              aria-label="Preferencia de estilo"
-              value={style}
-              onChange={(e) => setStyle(e.target.value as StoryStyle | "")}
-            >
-              <option value="">Que Gemini lo proponga</option>
-              {storyStyles.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
         <label>
           Lo que tienes en mente
           <textarea
@@ -530,8 +649,8 @@ function ScriptEntry({
         <span>
           <strong>Crear también las referencias visuales</strong>
           <small>
-            Nano Banana prepara imágenes reutilizables de personajes, objetos o
-            ambientes. Podrás cambiarlas después.
+            Nano Banana prepara personajes, escenarios y objetos para mantener
+            su apariencia entre tomas. Podrás cambiarlos después.
           </small>
         </span>
       </label>
@@ -622,7 +741,10 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
   const castIssues = storyCastIssues(draft);
   const issueIds = new Set(castIssues.map((issue) => issue.blockId));
   const contentIssues = draft.blocks.flatMap((block, index) => {
-    const missingText = !block.text.trim();
+    const missingText =
+      !block.text.trim() ||
+      (draft.mode === "spoken" &&
+        blockDialogue(draft, block).some((t) => !t.text.trim()));
     const missingVisual = !block.visual?.trim();
     return missingText || missingVisual
       ? [{ block, index, missingText, missingVisual }]
@@ -635,7 +757,9 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
       const node = sceneNodes.current.get(id);
       node?.scrollIntoView({ block: "center" });
       node
-        ?.querySelector<HTMLSelectElement>("select")
+        ?.querySelector<HTMLSelectElement>(
+          'select[aria-label^="Personaje de"], select',
+        )
         ?.focus({ preventScroll: true });
     });
   }
@@ -645,11 +769,15 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
     requestAnimationFrame(() => {
       const node = sceneNodes.current.get(issue.block.id);
       node?.scrollIntoView({ block: "center" });
-      node
-        ?.querySelector<HTMLTextAreaElement>(
+      const invalid = node?.querySelector<HTMLTextAreaElement>(
+        `[data-story-field="${issue.missingText ? "text" : "visual"}"][aria-invalid="true"]`,
+      );
+      (
+        invalid ||
+        node?.querySelector<HTMLTextAreaElement>(
           `[data-story-field="${issue.missingText ? "text" : "visual"}"]`,
         )
-        ?.focus({ preventScroll: true });
+      )?.focus({ preventScroll: true });
     });
   }
   const [working, setWorking] = useState(false);
@@ -741,6 +869,41 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
     update({ blocks });
   }
   function split(block: StoryBlock) {
+    if (draft.mode === "spoken") {
+      const turns = blockDialogue(draft, block);
+      let left: DialogueTurn[], right: DialogueTurn[];
+      if (turns.length > 1) {
+        const at = Math.ceil(turns.length / 2);
+        left = turns.slice(0, at);
+        right = turns.slice(at);
+      } else {
+        const turn = turns[0];
+        if (!turn) return;
+        const words = turn.text.match(/\S+\s*/g) || [];
+        if (words.length < 2) return;
+        const at = Math.ceil(words.length / 2);
+        left = [{ ...turn, text: words.slice(0, at).join("") }];
+        right = [
+          { ...turn, id: crypto.randomUUID(), text: words.slice(at).join("") },
+        ];
+      }
+      update({
+        blocks: draft.blocks.flatMap((b) =>
+          b.id === block.id
+            ? [
+                { ...b, ...dialoguePatch(left) },
+                {
+                  ...b,
+                  id: crypto.randomUUID(),
+                  title: `${b.title} · continuación`,
+                  ...dialoguePatch(right),
+                },
+              ]
+            : [b],
+        ),
+      });
+      return;
+    }
     const matches = [...block.text.matchAll(/\s+/g)].filter(
       (m) => m.index! > 0 && m.index! < block.text.length - 1,
     );
@@ -768,6 +931,50 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
       ),
     });
   }
+  function combine(index: number) {
+    const block = draft.blocks[index],
+      next = draft.blocks[index + 1];
+    if (!next) return;
+    const joined = {
+      ...block,
+      ...(draft.mode === "spoken"
+        ? dialoguePatch([
+            ...blockDialogue(draft, block),
+            ...blockDialogue(draft, next),
+          ])
+        : { text: `${block.text}\n${next.text}` }),
+      visual: [...new Set([block.visual, next.visual].filter(Boolean))].join(
+        "\n",
+      ),
+      participants: [
+        ...new Set([
+          ...(block.participants || []),
+          ...(next.participants || []),
+        ]),
+      ],
+      referenceNames: [
+        ...new Set([
+          ...(block.referenceNames || []),
+          ...(next.referenceNames || []),
+        ]),
+      ].slice(0, 3),
+    };
+    update({
+      blocks: draft.blocks.flatMap((b, i) =>
+        i === index ? [joined] : i === index + 1 ? [] : [b],
+      ),
+    });
+  }
+  const plannedCount =
+    draft.mode === "spoken"
+      ? draft.blocks.reduce((sum, block) => {
+          try {
+            return sum + planDialogueShots(draft, block).length;
+          } catch {
+            return sum;
+          }
+        }, 0)
+      : undefined;
   const selectedReference = draft.references?.find((r) => r.id === picker?.id);
   const selectedBlock = draft.blocks.find((b) => b.id === picker?.id);
   return (
@@ -819,12 +1026,18 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
         <span>
           {draft.mode === "voiceover"
             ? `Voz en off · ${draft.voiceId}`
-            : `${draft.characters.length} personajes`}
+            : `${draft.characters.length} ${draft.characters.length === 1 ? "personaje" : "personajes"}`}
         </span>
         <span>{storyStyles.find((s) => s.id === draft.style)?.label}</span>
         <span>
           {draft.settings.aspectRatio} · {draft.settings.resolution}
         </span>
+        {plannedCount !== undefined && (
+          <span>
+            {plannedCount}{" "}
+            {plannedCount === 1 ? "toma prevista" : "tomas previstas"}
+          </span>
+        )}
         <span>
           {draft.references?.filter((r) => r.assetId).length || 0}{" "}
           {draft.references?.filter((r) => r.assetId).length === 1
@@ -914,7 +1127,20 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
               );
               const ids =
                 block.referenceIds ??
-                storyReferenceIds(draft, block.speaker, block.referenceNames);
+                storyReferenceIds(
+                  draft,
+                  block.speaker,
+                  block.referenceNames,
+                  draft.mode === "spoken"
+                    ? [
+                        ...new Set([
+                          ...(block.participants || []),
+                          ...blockDialogue(draft, block).map((t) => t.speaker),
+                        ]),
+                      ]
+                    : block.participants,
+                  block.locationName,
+                );
               const images = ids.flatMap(
                 (id) => w.assets.find((a) => a.id === id) || [],
               );
@@ -961,47 +1187,67 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                       }
                     />
                     <div className="story-script-and-visual">
-                      <label>
-                        Lo que se escuchará
-                        <textarea
-                          data-story-field="text"
-                          aria-label={`Texto de la escena ${i + 1}`}
-                          aria-invalid={contentIssue?.missingText || undefined}
-                          aria-describedby={
-                            contentIssue?.missingText
-                              ? `story-content-error-${block.id}`
-                              : undefined
-                          }
-                          rows={3}
-                          value={block.text}
-                          onChange={(e) =>
-                            blockPatch(block.id, { text: e.target.value })
-                          }
+                      {draft.mode === "spoken" ? (
+                        <SceneConversation
+                          block={block}
+                          config={draft}
+                          assets={w.assets}
+                          label={`la escena ${i + 1}`}
+                          onChange={(patch) => blockPatch(block.id, patch)}
                         />
-                      </label>
-                      <label>
-                        Lo que se verá
-                        <textarea
-                          data-story-field="visual"
-                          aria-label={`Visual de la escena ${i + 1}`}
-                          aria-invalid={
-                            contentIssue?.missingVisual || undefined
-                          }
-                          aria-describedby={
-                            contentIssue?.missingVisual
-                              ? `story-content-error-${block.id}`
-                              : undefined
-                          }
-                          rows={3}
-                          value={block.visual || ""}
-                          onChange={(e) =>
-                            blockPatch(block.id, { visual: e.target.value })
-                          }
+                      ) : (
+                        <label>
+                          Lo que se escuchará
+                          <textarea
+                            data-story-field="text"
+                            aria-label={`Texto de la escena ${i + 1}`}
+                            aria-invalid={
+                              contentIssue?.missingText || undefined
+                            }
+                            aria-describedby={
+                              contentIssue?.missingText
+                                ? `story-content-error-${block.id}`
+                                : undefined
+                            }
+                            rows={3}
+                            value={block.text}
+                            onChange={(e) =>
+                              blockPatch(block.id, { text: e.target.value })
+                            }
+                          />
+                        </label>
+                      )}
+                      <div className="story-visual-direction">
+                        <label>
+                          Lo que se verá
+                          <textarea
+                            data-story-field="visual"
+                            aria-label={`Visual de la escena ${i + 1}`}
+                            aria-invalid={
+                              contentIssue?.missingVisual || undefined
+                            }
+                            aria-describedby={
+                              contentIssue?.missingVisual
+                                ? `story-content-error-${block.id}`
+                                : undefined
+                            }
+                            rows={3}
+                            value={block.visual || ""}
+                            onChange={(e) =>
+                              blockPatch(block.id, { visual: e.target.value })
+                            }
+                          />
+                        </label>
+                        <SceneStaging
+                          block={block}
+                          config={draft}
+                          assets={w.assets}
+                          onChange={(patch) => blockPatch(block.id, patch)}
                         />
-                      </label>
+                      </div>
                     </div>
                     <div className="story-plan-footer">
-                      {draft.mode === "spoken" && (
+                      {draft.mode === "spoken" && blockIssue && (
                         <label>
                           Habla
                           <select
@@ -1102,6 +1348,15 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                       >
                         <Trash2 size={14} />
                       </button>
+                      {i < draft.blocks.length - 1 && (
+                        <button
+                          className="text-button"
+                          onClick={() => combine(i)}
+                        >
+                          <Layers size={14} />
+                          Unir con siguiente
+                        </button>
+                      )}
                     </div>
                     {blockIssue && (
                       <p
@@ -1180,6 +1435,15 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
             <div className="story-cast-list">
               {draft.characters.map((c, i) => (
                 <div className="story-character" key={i}>
+                  {w.assets.find((a) => a.id === c.referenceId) && (
+                    <img
+                      className="story-character-portrait"
+                      src={
+                        w.assets.find((a) => a.id === c.referenceId)!.data_url
+                      }
+                      alt={`Referencia de ${c.name}`}
+                    />
+                  )}
                   <div className="field-row">
                     <label>
                       Nombre
@@ -1196,6 +1460,18 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                               ...b,
                               speaker: b.speaker === c.name ? name : b.speaker,
                               text: renameSpeakerLabel(b.text, c.name, name),
+                              dialogueSource:
+                                b.dialogueSource === b.text
+                                  ? renameSpeakerLabel(b.text, c.name, name)
+                                  : b.dialogueSource,
+                              dialogue: b.dialogue?.map((t) =>
+                                t.speaker === c.name
+                                  ? { ...t, speaker: name }
+                                  : t,
+                              ),
+                              participants: b.participants?.map((p) =>
+                                p === c.name ? name : p,
+                              ),
                             })),
                             references: draft.references?.map((r) =>
                               r.characterName === c.name
@@ -1267,7 +1543,9 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
               <div>
                 <h3>Biblioteca visual de la historia</h3>
                 <p>
-                  Imágenes compartidas para mantener la apariencia entre tomas.
+                  Personajes, lugares y objetos que se reutilizan en las tomas.
+                  Un escenario mantiene la distribución, la luz y los elementos
+                  del lugar.
                 </p>
               </div>
               <button
@@ -1284,6 +1562,15 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                 const asset = w.assets.find((a) => a.id === ref.assetId);
                 return (
                   <article className="story-reference-card" key={ref.id}>
+                    <span className="story-reference-kind">
+                      {ref.locationName
+                        ? "Escenario"
+                        : ref.characterName
+                          ? `Personaje · ${ref.characterName}`
+                          : ref.type === "STYLE"
+                            ? "Estilo"
+                            : "Objeto"}
+                    </span>
                     <button
                       className="story-reference-image"
                       aria-label={`Elegir imagen para ${ref.name}`}
@@ -1307,7 +1594,13 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                         update({
                           references: draft.references?.map((r) =>
                             r.id === ref.id
-                              ? { ...r, name: e.target.value }
+                              ? {
+                                  ...r,
+                                  name: e.target.value,
+                                  locationName: r.locationName
+                                    ? e.target.value
+                                    : undefined,
+                                }
                               : r,
                           ),
                           blocks: draft.blocks.map((b) => ({
@@ -1315,6 +1608,11 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                             referenceNames: b.referenceNames?.map((name) =>
                               name === ref.name ? e.target.value : name,
                             ),
+                            locationName:
+                              ref.locationName &&
+                              b.locationName === ref.locationName
+                                ? e.target.value
+                                : b.locationName,
                           })),
                         })
                       }
@@ -1324,9 +1622,11 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                       <select
                         aria-label={`Tipo de referencia ${ref.name}`}
                         value={
-                          ref.characterName
-                            ? `character:${ref.characterName}`
-                            : ref.type
+                          ref.locationName
+                            ? "LOCATION"
+                            : ref.characterName
+                              ? `character:${ref.characterName}`
+                              : ref.type
                         }
                         onChange={(e) => {
                           const value = e.target.value;
@@ -1340,8 +1640,14 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                                     ...r,
                                     type: characterName
                                       ? "CHARACTER"
-                                      : (value as "STYLE" | "PRODUCT"),
+                                      : value === "LOCATION"
+                                        ? "PRODUCT"
+                                        : (value as "STYLE" | "PRODUCT"),
                                     characterName,
+                                    locationName:
+                                      value === "LOCATION"
+                                        ? ref.name
+                                        : undefined,
                                   }
                                 : r,
                             ),
@@ -1352,10 +1658,20 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                                   ? { ...c, referenceId: undefined }
                                   : c,
                             ),
+                            blocks: draft.blocks.map((b) => ({
+                              ...b,
+                              locationName:
+                                ref.locationName &&
+                                b.locationName === ref.locationName &&
+                                value !== "LOCATION"
+                                  ? undefined
+                                  : b.locationName,
+                            })),
                           });
                         }}
                       >
-                        <option value="STYLE">Estilo o ambiente</option>
+                        <option value="LOCATION">Escenario o lugar</option>
+                        <option value="STYLE">Estilo visual</option>
                         <option value="PRODUCT">Objeto o elemento</option>
                         {draft.characters.map((c) => (
                           <option key={c.name} value={`character:${c.name}`}>
@@ -1402,6 +1718,14 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                               referenceIds: b.referenceIds?.filter(
                                 (id) => id !== ref.assetId,
                               ),
+                              referenceNames: b.referenceNames?.filter(
+                                (name) => name !== ref.name,
+                              ),
+                              locationName:
+                                ref.locationName &&
+                                b.locationName === ref.locationName
+                                  ? undefined
+                                  : b.locationName,
                             })),
                             characters: draft.characters.map((c) =>
                               c.referenceId === ref.assetId
@@ -1437,6 +1761,27 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
               <Plus size={15} />
               Añadir referencia
             </button>
+            <button
+              className="button"
+              onClick={() => {
+                const name = `Escenario ${(draft.references?.filter((r) => r.locationName).length || 0) + 1}`;
+                update({
+                  references: [
+                    ...(draft.references || []),
+                    {
+                      id: crypto.randomUUID(),
+                      name,
+                      locationName: name,
+                      type: "PRODUCT",
+                      prompt: "",
+                    },
+                  ],
+                });
+              }}
+            >
+              <Plus size={15} />
+              Añadir escenario
+            </button>
           </>
         )}
         {tab === "direction" && (
@@ -1457,22 +1802,10 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                   </option>
                 </select>
               </label>
-              <label>
-                Estilo visual
-                <select
-                  aria-label="Estilo visual"
-                  value={draft.style}
-                  onChange={(e) =>
-                    update({ style: e.target.value as StoryStyle })
-                  }
-                >
-                  {storyStyles.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <StoryStylePicker
+                value={draft.style}
+                onChange={(style) => style && update({ style })}
+              />
             </div>
             {draft.mode === "voiceover" ? (
               <>
@@ -1512,7 +1845,9 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
             ) : (
               <p className="hint">
                 El vídeo genera las voces siguiendo la descripción de cada
-                personaje. Revisa el diálogo y la consistencia entre tomas.
+                personaje y mantiene sus referencias visuales. Esto ayuda a la
+                continuidad, pero no garantiza una voz idéntica entre vídeos.
+                Revisa el resultado de cada toma.
               </p>
             )}
             <label>
@@ -1595,8 +1930,9 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
       </fieldset>
       <footer className="story-review-footer">
         <p>
-          Producir guarda tus cambios, crea la narración y pone los vídeos en
-          cola. Las tomas se podrán regenerar por separado.
+          {draft.mode === "spoken"
+            ? "Producir guarda tus cambios y pone las tomas con diálogo en cola. Podrás revisar y regenerar cada una por separado."
+            : "Producir guarda tus cambios, crea la narración y pone los vídeos en cola. Las tomas se podrán regenerar por separado."}
         </p>
         <button
           className="button primary"
@@ -1629,6 +1965,17 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                   draft,
                   selectedBlock?.speaker,
                   selectedBlock?.referenceNames,
+                  selectedBlock && draft.mode === "spoken"
+                    ? [
+                        ...new Set([
+                          ...(selectedBlock.participants || []),
+                          ...blockDialogue(draft, selectedBlock).map(
+                            (t) => t.speaker,
+                          ),
+                        ]),
+                      ]
+                    : selectedBlock?.participants,
+                  selectedBlock?.locationName,
                 ).slice(0, draft.settings.model === OMNI_MODEL ? 3 : 1))
               : selectedReference?.assetId
                 ? [selectedReference.assetId]
@@ -1756,6 +2103,9 @@ function ProductionBoard({
         scenes: scenes.map((s) => ({
           title: s.title,
           text: s.story!.text,
+          dialogue: s.story!.dialogue,
+          participants: s.story!.participants,
+          location: s.story!.locationName,
           part: s.story!.part,
           visual: s.story!.visual,
           audio_file: audio.find((a) => a.id === s.story!.audioId)?.name,
@@ -1960,17 +2310,54 @@ function ProductionBoard({
         </div>
       )}
       <div className="story-scenes">
-        {scenes.map((s, i) => (
-          <div key={`${s.id}:${s.story?.planned}`} hidden={!visible.has(s.id)}>
-            <StorySceneCard
-              scene={s}
-              index={i}
-              audio={w.narrations.find((a) => a.id === s.story?.audioId)}
-              config={story}
-              workspace={w}
-            />
-          </div>
-        ))}
+        {story.blocks.map((block, blockIndex) => {
+          const shots = scenes.filter((s) => s.story?.blockId === block.id);
+          const location = story.references?.find(
+            (r) => r.locationName && r.locationName === block.locationName,
+          );
+          const locationImage = w.assets.find(
+            (a) => a.id === location?.assetId,
+          );
+          return (
+            <section
+              className="story-production-group"
+              key={block.id}
+              hidden={!shots.some((s) => visible.has(s.id))}
+              aria-label={`Secuencia de ${block.title || `escena ${blockIndex + 1}`}`}
+            >
+              <header>
+                {locationImage && (
+                  <img src={locationImage.data_url} alt={block.locationName} />
+                )}
+                <div>
+                  <span>
+                    Escena {blockIndex + 1}
+                    {block.locationName ? ` · ${block.locationName}` : ""}
+                  </span>
+                  <h3>{block.title}</h3>
+                </div>
+                <small>
+                  {shots.filter((s) => sceneBlob(s)).length} de {shots.length}{" "}
+                  tomas listas
+                </small>
+              </header>
+              {shots.map((s) => (
+                <div
+                  key={`${s.id}:${s.story?.planned}`}
+                  hidden={!visible.has(s.id)}
+                >
+                  <StorySceneCard
+                    scene={s}
+                    index={scenes.findIndex((scene) => scene.id === s.id)}
+                    audio={w.narrations.find((a) => a.id === s.story?.audioId)}
+                    config={story}
+                    workspace={w}
+                  />
+                </div>
+              ))}
+            </section>
+          );
+        })}
       </div>
     </div>
   );

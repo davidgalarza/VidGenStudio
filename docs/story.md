@@ -6,10 +6,10 @@ Historia convierte un guion en un proyecto audiovisual editable. Utiliza la mism
 
 ## Del guion a la producción
 
-1. Pulsa **Nuevo proyecto → Proyecto de historia** y pega el **Guion completo**. Puedes dejar que Gemini decida la narración y el estilo, o abrir **Dar indicaciones** para orientar la propuesta.
-2. Pulsa **Crear propuesta**. Gemini organiza las escenas, detecta personajes, propone voces y describe qué se verá. Por defecto, Nano Banana genera también imágenes de referencia; desmarca esa opción si prefieres elegirlas después. Esta etapa utiliza texto e imágenes, todavía no genera voz ni vídeo.
-3. Revisa la propuesta. En **Escenas** puedes editar títulos, texto e imagen, dividir, ordenar, quitar o añadir momentos y elegir sus referencias. **Personajes y referencias** reúne las apariencias, descripciones de voz e imágenes reutilizables. **Voz y estilo** permite cambiar narración, voz de Gemini, dirección creativa, estilo, formato y modelo.
-4. Pulsa **Producir historia** cuando el plan esté listo. Se guardan los cambios, se prepara la narración y se añaden los vídeos a la cola en segundo plano. El audio real determina cuántos clips necesita cada escena.
+1. Pulsa **Nuevo proyecto → Proyecto de historia** y pega en **Guion completo** solo lo que se escuchará. En **Cómo se escucha** elige personajes hablando, voz en off o deja que Gemini lo proponga. El selector de estilo muestra doce muestras visuales. **Dar indicaciones** sigue siendo opcional.
+2. Pulsa **Crear propuesta**. Gemini organiza escenas narrativas, personajes, voces, lugares, acciones e intervenciones. No necesitas escribir un guion técnico. Por defecto, Nano Banana genera también imágenes de referencia; desmarca esa opción si prefieres elegirlas después. Esta etapa utiliza texto e imágenes, todavía no genera voz ni vídeo.
+3. Revisa la propuesta. En **Escenas** puedes editar títulos, texto e imagen, dividir, unir con la siguiente, ordenar, quitar o añadir momentos y elegir sus referencias. Las conversaciones permiten ajustar quién dice cada parte, su interpretación, las acciones y cómo se filma. **Personajes y referencias** reúne las apariencias, descripciones de voz, escenarios e imágenes reutilizables. **Voz y estilo** permite cambiar narración, voz de Gemini, dirección creativa, estilo, formato y modelo.
+4. Pulsa **Producir historia** cuando el plan esté listo. Se guardan los cambios, se prepara la narración y se añaden los vídeos a la cola en segundo plano. En voz en off, el audio real determina los clips necesarios; con personajes hablando, se usa una estimación conservadora del habla.
 5. Revisa las tomas y abre el montaje para recortar, mover, dividir o quitar partes. Cada vídeo se puede regenerar conservando su narración. Las tomas anteriores siguen disponibles.
 
 Los vídeos se producen en paralelo, hasta 3 a la vez por defecto. Cada escena muestra su propio progreso; el orden del montaje, el guion y las voces se conservan aunque los resultados lleguen en otro orden. Puedes elegir de 1 a 4 en **Ajustes → Generación en paralelo**. La planificación, la creación de referencias y la preparación de la voz mantienen su flujo actual. Consulta [cola, pausa y recuperación](usage.md#cola-pausa-y-recuperación) para los límites de Google, prioridades y recuperación múltiple.
@@ -29,15 +29,49 @@ El aviso **Personajes por revisar** reúne las escenas afectadas por cada nombre
 - **Voz en off:** Gemini TTS lee el texto; los vídeos ilustran su significado. La misma voz y las mismas indicaciones se reutilizan en todas las escenas. Hay 30 voces seleccionables y dirección de tono, acento y ritmo mediante texto. El montaje silencia el sonido original del vídeo y añade la narración.
 - **Personajes hablando:** el modelo de vídeo genera imagen, diálogo y sonido. Gemini propone un reparto con apariencia y descripción de voz constantes; las referencias ayudan a mantener la identidad. Puedes usar etiquetas como `Ana: ...` y `Luis: ...`; no se envían como palabras que deban pronunciarse.
 
-La voz generada dentro del vídeo no ofrece un identificador de voz fijo ni garantiza repetir exactamente cada palabra. Revisa el diálogo, la pronunciación y la continuidad. Para controlar mejor la voz entre tomas, usa Gemini TTS en voz en off. Tampoco se realiza una transcripción automática para verificar el texto pronunciado por TTS.
+Para un monólogo basta con pegar las palabras y elegir **Personajes hablando**; Gemini propone el personaje. Para una conversación, identifica a cada hablante en el texto libre:
+
+```text
+Ana: ¿Qué hay detrás de esa puerta?
+Leo: Vamos a descubrirlo.
+Ana: Te sigo.
+```
+
+No hace falta añadir acciones, cámaras ni lugares al guion. Gemini propone esas indicaciones por separado. En **Voz en off**, todo el texto se trata como narración literal: los nombres seguidos de dos puntos también forman parte de lo que leerá la voz.
+
+La voz generada dentro del vídeo no ofrece un identificador de voz fijo ni garantiza repetir exactamente cada palabra. Las descripciones y referencias visuales no clonan una voz; esta integración no envía referencias de audio. Revisa el diálogo, la pronunciación y la continuidad. Para controlar mejor la voz entre tomas, usa Gemini TTS en voz en off. Tampoco se realiza una transcripción automática para verificar el texto pronunciado por TTS.
+
+## Escenas, conversaciones y tomas
+
+Una **escena** reúne lo que sucede en un mismo contexto; una **intervención** contiene lo que dice un personaje; una **toma** es un clip generado. Cambiar de hablante no obliga a crear otra escena. Una escena larga puede producir varias tomas, y un intercambio breve puede incluir varias voces dentro de un solo vídeo.
+
+Cada intervención tiene un personaje, sus palabras, una interpretación opcional y **Acción y movimiento**. La interpretación y las acciones son indicaciones visuales o de actuación, no palabras que deban pronunciarse. Puedes editar, reordenar, añadir o quitar intervenciones, o abrir la edición como texto. **En escena** permite añadir oyentes que reaccionan en silencio; quienes hablan se incluyen automáticamente. **Lugar de la escena** vincula una referencia reutilizable.
+
+**Cómo se filma** ofrece tres opciones:
+
+- **Automático:** agrupa intercambios breves cuando caben; limita cada toma a dos hablantes y tres intervenciones como máximo.
+- **Plano compartido:** pide mantener juntos a los personajes y agrupa el diálogo mientras lo permita la duración. Una escena larga sigue necesitando varios clips.
+- **Alternar:** cada toma contiene un solo hablante; las intervenciones largas se reparten entre las tomas necesarias.
+
+La lista de **Tomas previstas** muestra el reparto del texto y la duración estimada antes de producir. Cambiar estas opciones recalcula el plan localmente, sin generar vídeo. La aplicación conserva las palabras y su orden al repartirlas; el resultado del modelo puede apartarse del plan y necesita revisión.
+
+## Revisar el diálogo generado
+
+En una toma terminada de personajes hablando, guarda primero tus cambios y pulsa **Revisar diálogo → Analizar esta toma con Gemini**. Es una solicitud opcional que envía ese vídeo y las descripciones del reparto a Gemini, usando tu clave y consumiendo cuota de análisis de vídeo. El límite local es de 14 MB por vídeo; los vídeos mayores se revisan escuchándolos manualmente.
+
+Gemini transcribe lo que oye sin recibir las palabras previstas. La aplicación compara después hablantes y palabras localmente, ignorando diferencias de mayúsculas y puntuación. Puedes ver el texto previsto, la transcripción y las observaciones sobre posibles cortes, solapamientos o sincronización labial. **La transcripción coincide** describe esa comparación, no certifica que el vídeo sea correcto: la transcripción y la identificación de voces pueden equivocarse.
+
+La revisión no modifica ni regenera nada automáticamente. Puedes cerrar, escuchar el vídeo y ajustar o regenerar solo esa toma. El resultado es temporal: no se guarda en el proyecto ni se exporta y se descarta al cambiar de versión o recargar. Cerrar durante el análisis interrumpe el seguimiento local; no garantiza cancelar el procesamiento o coste remoto. **Volver a revisar con Gemini** inicia otra solicitud explícita.
 
 ## Planificación y referencias
 
-El planificador recibe fragmentos numerados y devuelve rangos consecutivos, títulos, acciones visuales y una configuración. El código conserva el texto original y rechaza respuestas con omisiones, duplicaciones o cambios de orden. Procesa guiones largos por lotes y guarda el avance; nuevos personajes pueden aparecer en lotes posteriores. No hay un límite fijo de duración total impuesto por la interfaz; siguen aplicando las cuotas de la cuenta, el almacenamiento y el número de solicitudes.
+El planificador recibe fragmentos numerados y devuelve rangos consecutivos para las escenas y sus intervenciones, títulos, acciones visuales y una configuración. El código reconstruye las palabras desde el texto original y rechaza rangos con omisiones, duplicaciones, cambios de orden o hablantes incoherentes. Procesa guiones largos por lotes y guarda el avance; nuevos personajes pueden aparecer en lotes posteriores. No hay un límite fijo de duración total impuesto por la interfaz; siguen aplicando las cuotas de la cuenta, el almacenamiento y el número de solicitudes.
 
-Nano Banana crea referencias compartidas de personajes, objetos o estilo. Las referencias de estilo se generan primero y pueden acompañar a las demás imágenes. Puedes editar su descripción, regenerar una imagen, elegir una existente o subir una propia con el selector. Cambiar la descripción no regenera una imagen automáticamente. Las escenas usan referencias automáticas; también puedes fijar una selección por escena. Omni admite hasta tres; Veo utiliza una como fotograma inicial.
+Nano Banana crea referencias compartidas de personajes, escenarios, objetos o estilo. Los escenarios representan el lugar vacío: arquitectura, luz, mobiliario y posiciones estables, sin personas ni etiquetas. La misma referencia puede acompañar varias escenas y tomas; no se genera otro escenario por cambiar la cámara. Puedes añadir un **Escenario o lugar**, editar su descripción, regenerar una imagen, elegir una existente o subir una propia con el selector.
 
-Los estilos incluyen realista, cinematográfico, cartoon, animación 3D, explicativo, e infografía. Son instrucciones visuales para el modelo, no plantillas de contenido ni garantías de apariencia exacta.
+Las referencias de estilo se generan primero y pueden acompañar a las demás imágenes. Cambiar la descripción no regenera una imagen automáticamente. La selección automática usa los personajes presentes y reserva espacio para el escenario, dentro del límite de tres guías de Omni; también puedes fijar una selección por escena. Con más personajes, no todos tendrán una guía de imagen en cada solicitud: sus descripciones siguen formando parte del prompt. Veo utiliza una referencia como fotograma inicial. Las imágenes y las indicaciones ayudan a la continuidad, pero no garantizan una identidad o escenografía idéntica.
+
+Los doce estilos son realista, cinematográfico, cartoon, animación 3D, explicativo, infografía, anime, stop motion, acuarela, papel recortado, pixel art y cómic. El selector muestra la misma escena interpretada de doce maneras para facilitar la comparación. Son instrucciones visuales para el modelo, no plantillas de contenido ni garantías de apariencia exacta. Las muestras son una imagen ilustrativa generada con IA e incluida en la aplicación; no se envían automáticamente a Google como referencias de tu historia. Consulta su [procedencia](../src/assets/README.md).
 
 ## Duración y sincronización
 
@@ -73,13 +107,17 @@ Las claves se configuran una sola vez en Ajustes. El acceso a TTS, imágenes, te
 
 ## Montaje y materiales
 
-**Guion y escenas** abre en la etapa guardada. En producción, busca por nombre, texto o descripción visual y filtra **Todas / Por revisar / Pendientes / En proceso / Listas**. Las escenas conservan su número y orden de guion; los filtros y los cambios entre secciones no descartan las ediciones abiertas. Guarda los cambios de cada toma antes de salir del proyecto o recargar.
+**Guion y escenas** abre en la etapa guardada. En producción, las tomas aparecen agrupadas por escena narrativa, con el lugar y el recuento de tomas listas. Busca por nombre, texto o descripción visual y filtra **Todas / Por revisar / Pendientes / En proceso / Listas**. Las escenas conservan su número y orden de guion; los filtros y los cambios entre secciones no descartan las ediciones abiertas. Guarda los cambios de cada toma antes de salir del proyecto o recargar.
+
+Puedes corregir las palabras, la interpretación, las acciones y la descripción visual de una toma y regenerarla sin volver a producir toda la historia. Se conservan las versiones anteriores; regenerar no cambia las otras tomas. Una edición que ya no quepa en el límite de duración necesita acortar el texto o redistribuirlo: el editor de una toma producida no vuelve a planificar automáticamente el resto de la escena.
+
+En las nuevas tomas con referencias automáticas, cambiar quién habla actualiza también los retratos seleccionados y conserva el escenario. Una selección de referencias modificada manualmente se respeta.
 
 **Materiales** reúne todos los vídeos del proyecto, incluidas las tomas de apoyo o los clips de proyectos anteriores. Conserva generación individual, edición, extensión, comparación, favoritos, papelera y descargas. **Montaje** abre el editor de secuencia; al salir regresa a la sección desde la que lo abriste, después de guardar los ajustes.
 
 El montaje sigue la toma activa de cada escena de Historia. Los montajes normales conservan sus versiones fijadas. **Exportar vídeo** incorpora la voz en off: descargar un clip original por separado conserva el archivo de vídeo recibido del modelo.
 
-**Voz y guion** descarga WAV, el guion original y un manifiesto JSON con texto de escena, descripción visual y rangos de audio para continuar en otro editor. Las narraciones antiguas en MP3 siguen siendo reproducibles y exportables. No es una copia reimportable del proyecto.
+**Voz y guion** descarga WAV, el guion original y `escenas.json` con texto, intervenciones, participantes, lugar, descripción visual y rangos de audio para continuar en otro editor. El manifiesto conserva el formato `vidgen-story-materials-v2` y añade los campos opcionales `dialogue`, `participants` y `location`; las intervenciones incluyen interpretación y acción cuando existen. Las narraciones antiguas en MP3 siguen siendo reproducibles y exportables. No es una copia reimportable del proyecto.
 
 ## Contratos y almacenamiento
 

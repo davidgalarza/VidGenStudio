@@ -491,8 +491,8 @@ test("spoken story infers characters, keeps labels out of dialogue and generates
   const data = await stored(page);
   expect(data.scenes.length).toBeGreaterThanOrEqual(3);
   expect(data.projects[0].story!.script).toBe(script);
-  expect(data.scenes[0].prompt).toContain("Ana says exactly");
-  expect(data.scenes.at(-1)!.prompt).toContain("Luis says exactly");
+  expect(data.scenes[0].prompt).toContain('"speaker":"Ana"');
+  expect(data.scenes.at(-1)!.prompt).toContain('"speaker":"Luis"');
   expect(data.scenes.every((s) => !/^(Ana|Luis):/.test(s.story!.text))).toBe(
     true,
   );
@@ -602,7 +602,13 @@ test("initial guidance survives leaving the script and a review conflict offers 
   await page.getByLabel("Guion completo", { exact: true }).fill(script);
   await page.locator(".story-preferences summary").click();
   await page.getByLabel("Preferencia de narración").selectOption("voiceover");
-  await page.getByLabel("Preferencia de estilo").selectOption("cartoon");
+  await page.locator(".story-style-trigger").click();
+  await page
+    .getByRole("button", {
+      name: "Animación 2D Dibujo 2D expresivo",
+      exact: true,
+    })
+    .click();
   await page
     .getByLabel("Lo que tienes en mente")
     .fill("Explicación para niños, colores planos");
@@ -612,7 +618,9 @@ test("initial guidance survives leaving the script and a review conflict offers 
     .getByRole("button", { name: "Guion y escenas", exact: true })
     .click();
   await page.locator(".story-preferences summary").click();
-  await expect(page.getByLabel("Preferencia de estilo")).toHaveValue("cartoon");
+  await expect(page.locator(".story-style-trigger")).toContainText(
+    "Animación 2D",
+  );
   await expect(page.getByLabel("Lo que tienes en mente")).toHaveValue(
     "Explicación para niños, colores planos",
   );
@@ -871,7 +879,9 @@ test("a long story identifies hidden speaker mismatches and repairs the affected
     "3 escenas necesitan revisar su personaje",
   );
   await expect(
-    page.getByLabel("Personaje de la escena 1", { exact: true }),
+    page.getByLabel("Quién habla en intervención 1 de la escena 1", {
+      exact: true,
+    }),
   ).toHaveValue("Ana");
   await expect(
     page.getByLabel("Personaje de la escena 5", { exact: true }),
@@ -894,7 +904,9 @@ test("a long story identifies hidden speaker mismatches and repairs the affected
     .getByRole("button", { name: "Ver escena 39", exact: true })
     .click();
   await expect(
-    page.getByLabel("Personaje de la escena 39", { exact: true }),
+    page.getByLabel("Quién habla en intervención 1 de la escena 39", {
+      exact: true,
+    }),
   ).toBeFocused();
   await expect(page.locator(".story-planned-scene")).toHaveCount(40);
   await review
@@ -931,7 +943,9 @@ test("a long story identifies hidden speaker mismatches and repairs the affected
     .getByRole("button", { name: "Mostrar todas las escenas", exact: true })
     .click();
   await expect(
-    page.getByLabel("Personaje de la escena 39", { exact: true }),
+    page.getByLabel("Quién habla en intervención 1 de la escena 39", {
+      exact: true,
+    }),
   ).toHaveValue("Ana");
   await page
     .getByRole("button", { name: "Guardar cambios", exact: true })

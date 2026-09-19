@@ -485,5 +485,7 @@ test("an incomplete proposal identifies and focuses the exact missing scene fiel
   await expect(page.getByRole("alert")).toContainText(
     "La escena 2 está incompleta. Añade el texto.",
   );
-  await expect(page.getByLabel("Texto de la escena 2")).toBeFocused();
+  await expect(
+    page.getByLabel("Texto de intervención 1 de la escena 2"),
+  ).toBeFocused();
 });

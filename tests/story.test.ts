@@ -449,10 +449,10 @@ describe("editable Gemini proposals", () => {
     ).toBe("María: Hola, Luis.\nLuis: Hola Ana.\nMaría: Vamos.");
   });
   it("preserves every script character across batches, honors preferences and adds later characters", () => {
-    const script =
-      "Ana: Hola, esta es nuestra historia.\n\nLuis: Un segundo personaje entra después. "
-        .repeat(80)
-        .trim();
+    const script = (
+      "Ana: Hola, esta es nuestra historia.\n\n".repeat(40) +
+      "Luis: Un segundo personaje entra después.\n".repeat(80)
+    ).trim();
     let story = newStoryProposal(script, { mode: "spoken", style: "cartoon" });
     while (story.planning!.cursor < story.planning!.units.length) {
       const cursor = story.planning!.cursor,

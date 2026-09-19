@@ -6,6 +6,41 @@ const nameKey = (name: string) => cleanCharacterName(name).toLocaleLowerCase();
 const accentKey = (name: string) =>
   nameKey(name).normalize("NFD").replace(/\p{M}/gu, "");
 
+export function sourceSpeakerLabels(text: string): string[] {
+  return text.split(/\n/).flatMap((line) => {
+    const label = line.match(
+      /^[ \t]*(?:[-–—][ \t]*)?(?:\*\*)?([^:\n–—]{1,60}?)(?:\*\*)?[ \t]*(?::|[–—]| -)/u,
+    )?.[1];
+    return label ? [cleanCharacterName(label.replace(/\*\*/g, ""))] : [];
+  });
+}
+export function missingSourceSpeakers(
+  script: string,
+  source: string,
+  characters: StoryCharacter[],
+) {
+  const labels = sourceSpeakerLabels(script);
+  // A plain monologue can contain several colons. A recognized speaker must
+  // establish the labelled format before other prefixes are treated as names.
+  if (!labels.some((name) => findStoryCharacter(characters, name))) return [];
+  return [
+    ...new Set(
+      sourceSpeakerLabels(source).filter(
+        (name) => !findStoryCharacter(characters, name),
+      ),
+    ),
+  ];
+}
+export function renameSourceSpeaker(text: string, from: string, to: string) {
+  return text.replace(
+    /^([ \t]*(?:[-–—][ \t]*)?(?:\*\*)?)([^:\n–—]{1,80}?)(\*{0,2}[ \t]*(?::|[–—]| -)(?:\*\*)?[ \t]*)/gmu,
+    (whole, prefix, name, separator) =>
+      nameKey(name.replace(/\*\*/g, "")) === nameKey(from)
+        ? `${prefix}${to}${separator}`
+        : whole,
+  );
+}
+
 // Only resolve an unambiguous identity. Similar names must never silently change a speaker.
 export function findStoryCharacter(
   characters: StoryCharacter[],
@@ -37,6 +72,13 @@ export function normalizeStoryCast(story: Story): Story {
     blocks: story.blocks.map((b) => ({
       ...b,
       speaker: blockSpeaker(config, b)?.name || b.speaker,
+      dialogue: b.dialogue?.map((t) => ({
+        ...t,
+        speaker: findStoryCharacter(characters, t.speaker)?.name || t.speaker,
+      })),
+      participants: b.participants?.map(
+        (name) => findStoryCharacter(characters, name)?.name || name,
+      ),
     })),
     references: story.references?.map((r) => ({
       ...r,
@@ -62,6 +104,28 @@ export function storyCastIssues(story: Story): StoryCastIssue[] {
       title: block.title || `Escena ${index + 1}`,
     };
     const issues: StoryCastIssue[] = [];
+    for (const name of missingSourceSpeakers(
+      story.script,
+      block.text,
+      story.characters,
+    ))
+      issues.push({ ...common, name, source: "label" });
+    if (block.dialogue && block.dialogueSource === block.text) {
+      for (const turn of block.dialogue) {
+        if (
+          !findStoryCharacter(story.characters, turn.speaker) &&
+          !issues.some((i) => i.name === turn.speaker)
+        )
+          issues.push({ ...common, name: turn.speaker, source: "label" });
+      }
+      for (const name of block.participants || [])
+        if (
+          !findStoryCharacter(story.characters, name) &&
+          !issues.some((i) => i.name === name)
+        )
+          issues.push({ ...common, name, source: "label" });
+      return issues;
+    }
     if (!blockSpeaker(story, block))
       issues.push({
         ...common,
@@ -100,16 +164,28 @@ export function assignStorySpeaker(
     blocks: story.blocks.map((b) => {
       const own = issues.filter((i) => i.blockId === b.id);
       if (!own.length) return b;
-      const text = b.text.replace(
-        /(^|\n)([ \t]*)([^:\n]+)(:[ \t]*)/g,
-        (whole, line, space, label, colon) =>
-          own.some((i) => i.name && nameKey(i.name) === nameKey(label))
-            ? `${line}${space}${character.name}${colon}`
-            : whole,
+      const text = own.reduce(
+        (text, issue) =>
+          issue.name
+            ? renameSourceSpeaker(text, issue.name, character.name)
+            : text,
+        b.text,
       );
       return {
         ...b,
         text,
+        dialogueSource: b.dialogueSource === b.text ? text : b.dialogueSource,
+        dialogue: b.dialogue?.map((turn) => ({
+          ...turn,
+          speaker: own.some((i) => nameKey(i.name) === nameKey(turn.speaker))
+            ? character.name
+            : turn.speaker,
+        })),
+        participants: b.participants?.map((participant) =>
+          own.some((i) => nameKey(i.name) === nameKey(participant))
+            ? character.name
+            : participant,
+        ),
         speaker: own.some((i) => i.source === "speaker")
           ? character.name
           : b.speaker,

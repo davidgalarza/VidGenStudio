@@ -45,7 +45,26 @@ export function projectKind(
 }
 export type StoryMode = "spoken" | "voiceover";
 export type StoryStyle =
-  "realistic" | "cinematic" | "cartoon" | "3d" | "explainer" | "infographic";
+  | "realistic"
+  | "cinematic"
+  | "cartoon"
+  | "3d"
+  | "explainer"
+  | "infographic"
+  | "anime"
+  | "stopmotion"
+  | "watercolor"
+  | "papercut"
+  | "pixel"
+  | "comic";
+export type StoryShotMode = "auto" | "shared" | "alternating";
+export interface DialogueTurn {
+  id: string;
+  speaker: string;
+  text: string;
+  direction?: string;
+  action?: string;
+}
 export interface StoryCharacter {
   name: string;
   description: string;
@@ -58,6 +77,7 @@ export interface StoryReference {
   type: Asset["type"];
   prompt: string;
   characterName?: string;
+  locationName?: string;
   assetId?: string;
 }
 export interface StoryConfig {
@@ -81,6 +101,12 @@ export interface StoryBlock {
   visual?: string;
   referenceIds?: string[];
   referenceNames?: string[];
+  locationName?: string;
+  participants?: string[];
+  shotMode?: StoryShotMode;
+  dialogue?: DialogueTurn[];
+  /** Structured dialogue is only valid for this exact editable source. */
+  dialogueSource?: string;
 }
 export interface Story extends StoryConfig {
   id: string;
@@ -121,6 +147,12 @@ export interface StoryScene {
   blockId: string;
   text: string;
   speaker?: string;
+  dialogue?: DialogueTurn[];
+  locationName?: string;
+  participants?: string[];
+  shotMode?: StoryShotMode;
+  /** Last automatic selection; a different actual selection is an explicit override. */
+  autoReferenceIds?: string[];
   visual: string;
   planned: boolean;
   audioId?: string;

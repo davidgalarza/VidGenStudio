@@ -8,37 +8,42 @@ web
 
 ## Users
 
-People creating and editing videos of any kind. The interface uses Spanish, with no templates or positioning around a specific use case.
+Personas que crean y editan vídeos de cualquier tipo. La interfaz está en español, sin plantillas ni posicionamiento para un uso específico.
 
 ## Product Purpose
 
-Plan scenes, turn a script into an editable story, generate video through a personal Google API key, iterate on clips and download a finished sequence.
+Planificar escenas, convertir un guion en una historia editable, generar vídeo con una clave personal de Google, iterar sobre clips y descargar una secuencia terminada.
 
 ## Capabilities and Constraints
 
-Fork of rajjitlai/Video_Orchestrator under MIT. React, TypeScript and Vite; browser-local IndexedDB; static deployment on Vercel. Integrate Gemini Omni 1.1 Flash directly through Google's Interactions API and retain Veo support. No credentials bundled into the deployment. Existing projects must remain readable.
+Fork de rajjitlai/Video_Orchestrator con licencia MIT. React, TypeScript y Vite; IndexedDB local al navegador; despliegue estático en Vercel. Integración directa de Gemini Omni 1.1 Flash mediante Interactions de Google, conservando soporte para Veo. El despliegue no incluye credenciales. Los proyectos existentes deben seguir siendo legibles.
 
-Historia uses the same personal Google connection for Gemini planning, Nano Banana reference images and Gemini TTS narration. Model access and quota depend on that connection. Voice-over uses a selected Gemini TTS voice; character dialogue is generated with the video and requires review for delivery and voice consistency. Long scripts become editable scenes and clips within the selected video model's duration limits. Narration timing uses the actual audio duration, without claiming word-level timestamps.
+Historia utiliza la misma conexión personal de Google para planificar con Gemini, crear referencias con Nano Banana y narrar con Gemini TTS. El acceso a modelos y la cuota dependen de esa conexión. La voz en off utiliza una voz seleccionada de Gemini TTS; el diálogo de personajes se genera con el vídeo y requiere revisión de las palabras, la interpretación y la consistencia de voces. Los guiones largos se convierten en escenas y tomas editables dentro de los límites del modelo de vídeo. Los tiempos de narración se basan en la duración real del audio, sin afirmar que existen marcas por palabra.
+
+Las conversaciones pueden reunir varios hablantes y oyentes en una escena narrativa. Las intervenciones separan las palabras de la interpretación y la acción; el sistema las reparte en tomas automáticas, compartidas o alternadas. Las referencias de escenarios vacíos se reutilizan para orientar la continuidad del lugar. Las doce muestras de estilo facilitan la elección visual: son ilustraciones, no plantillas ni referencias adjuntadas automáticamente a Google. No se promete identidad de voz fija, pronunciación literal ni escenografía idéntica.
 
 ## Operating Context
 
-Two explicit project types: Clips opens a clip library; Historia opens its saved script, proposal or production stage. Creation starts empty without provider calls. Legacy projects with a saved story or a nonempty initial session draft open in Historia; all existing clips, versions, references and montage data remain accessible. Home can filter by type.
+Dos tipos explícitos de proyecto: Clips abre una biblioteca; Historia abre su guion, propuesta o etapa de producción guardada. La creación comienza vacía, sin llamadas al proveedor. Los proyectos anteriores con una historia guardada o un borrador inicial de sesión no vacío se abren como Historia; todos sus clips, versiones, referencias y datos de montaje siguen accesibles. La pantalla inicial permite filtrar por tipo.
 
-Clip workflow: project clip libraries, individual editing, reusable image references and multiple versions. Users can download selected original clips in ZIP for a local editor, or explicitly assemble an optional sequence with its own saved order. Requests that consume Google quota follow an explicit action with its scope visible. Downloads and local data are not synchronized across devices.
+Flujo de Clips: bibliotecas por proyecto, edición individual, referencias reutilizables y múltiples versiones. Se pueden descargar originales seleccionados en ZIP para un editor local o montar explícitamente una secuencia opcional con su propio orden guardado. Las solicitudes que consumen cuota de Google siguen una acción explícita con alcance visible. Las descargas y los datos locales no se sincronizan entre dispositivos.
 
-Historia has dedicated Guion y escenas, Materiales and Montaje views. Materiales reuses the full clip library, including legacy independent clips. Production supports scene search and status filters while retaining script order and in-progress edits across these views. Montage returns to its entry view after saving.
+Historia tiene vistas dedicadas de Guion y escenas, Materiales y Montaje. Materiales reutiliza la biblioteca completa, incluidos los clips independientes anteriores. La producción agrupa las tomas por escena narrativa y permite búsqueda y filtros de estado, conservando el orden del guion y las ediciones pendientes al alternar vistas. Montaje vuelve a su vista de entrada después de guardar.
 
-Historia starts with a script; narration mode, visual style and direction are optional inputs. Creating a proposal asks Gemini to organize the original text and suggest scenes, characters, voices and visual references. Reference image generation can be included in this step. The proposal remains editable before the separate production action creates narration and videos: users can revise text and visuals, reorder or split scenes, adjust the cast, select or regenerate references, and choose voice and output settings.
+Historia empieza solo con las palabras que se escucharán. Un monólogo no necesita personajes configurados; una conversación identifica en el texto quién dice cada parte; en voz en off el texto se lee como narración literal. El modo, el estilo y la dirección son indicaciones opcionales. Crear propuesta pide a Gemini organizar el texto original y proponer escenas, reparto, voces, acciones, lugares y referencias visuales. La generación de referencias puede incluirse en esta etapa. La propuesta permanece editable antes de producir: se pueden revisar palabras e imágenes, reordenar, dividir o unir escenas, ajustar intervenciones y participantes, seleccionar o regenerar referencias y cambiar voz y ajustes de salida.
 
-Input and proposal drafts survive navigation and reload in the current browser session; explicitly saved plans and completed assets persist with the local project. Interrupted work resumes from saved progress, with existing material preserved. Production continues while the user changes views within the open app. Regenerating a visual take retains its existing narration, and the resulting clips remain available in the library and editable montage. The interface distinguishes local drafts, saved plans, active work and recoverable errors.
+Los borradores iniciales y de propuesta sobreviven a la navegación y la recarga durante la sesión del navegador; los planes guardados explícitamente y los medios terminados persisten con el proyecto local. El trabajo interrumpido continúa desde el avance guardado y conserva el material existente. La producción sigue al cambiar de vista dentro de la aplicación abierta. Regenerar una toma visual conserva su narración en voz en off; en diálogo se regenera la toma concreta y se conservan las versiones anteriores. Los clips siguen disponibles en la biblioteca y el montaje editable. La interfaz distingue borradores locales, planes guardados, trabajo activo y errores recuperables.
+
+Revisar diálogo es una acción opcional y explícita sobre una toma terminada de hasta 14 MB. Envía vídeo y descripciones del reparto a Gemini, consume cuota y compara localmente la transcripción con el texto previsto. Puede equivocarse, no cambia ni regenera contenido automáticamente y su resultado es temporal, no persistido.
 
 ## Product Principles
 
-- Make the next action and the current generation state visible.
-- Preserve completed clips when a new attempt fails.
-- Keep a predictable, familiar video editing workspace.
-- Show actual status and usage; do not invent billing estimates.
+- Hacer visibles la siguiente acción y el estado de generación.
+- Conservar los clips terminados si falla un nuevo intento.
+- Mantener un espacio de edición de vídeo predecible y familiar.
+- Empezar por el guion, automatizar el plan y permitir corregirlo antes de producir.
+- Mostrar el estado y uso reales; no inventar estimaciones de facturación.
 
 ## Evidence on Hand
 
-Original source, Google's public API documentation, browser workflow tests and real FFmpeg exports. Recovery of an existing Omni result was verified using the user's configured connection without submitting another generation. Automated generation tests use simulated responses and do not establish model availability or billing behavior.
+Código original, documentación pública de Google, pruebas de flujos de navegador y exportaciones reales de FFmpeg. En trabajo anterior se comprobó la recuperación de un resultado Omni existente con la conexión configurada por el usuario, sin solicitar otra generación. Las pruebas automáticas de generación y revisión de diálogo usan respuestas simuladas: no acreditan disponibilidad de modelos, precisión audiovisual, consistencia de voces ni comportamiento de facturación real.

@@ -4,17 +4,18 @@
 
 ## Qué queda en el navegador
 
-| Dato                         | Ubicación                                         | Observaciones                                                                  |
-| ---------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Clave personal               | localStorage, `vid_gen_api_key`                   | No está cifrada por la aplicación; el JavaScript del mismo origen puede leerla |
-| Borrador de Historia         | sessionStorage, `vidgen-story-draft-{projectId}`  | Guion inicial; nunca incluye claves                                            |
-| Propuesta de Historia        | sessionStorage, `vidgen-story-review-{projectId}` | Ediciones pendientes de guardar, con revisión del proyecto                     |
-| Narración de Historia        | IndexedDB, almacén `narrations`                   | WAV PCM, duración real y pausas acústicas; admite MP3 antiguos con alineación  |
-| Ajustes de generación        | localStorage, `vidgen_defaults`                   | Preferencias locales                                                           |
-| Proyectos, clips y versiones | IndexedDB, `vid-gen-studio`                       | Incluye blobs de vídeo, prompts y metadatos                                    |
-| Referencias                  | IndexedDB, almacén `assets`                       | Imágenes y vínculos a proyectos                                                |
-| Cola y recuperación          | Registros de clips en IndexedDB                   | Solicitudes capturadas e identificadores remotos                               |
-| Archivos descargados         | Carpeta de descargas que elijas                   | Quedan fuera del control de la aplicación                                      |
+| Dato                         | Ubicación                                         | Observaciones                                                                         |
+| ---------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Clave personal               | localStorage, `vid_gen_api_key`                   | No está cifrada por la aplicación; el JavaScript del mismo origen puede leerla        |
+| Borrador de Historia         | sessionStorage, `vidgen-story-draft-{projectId}`  | Guion inicial; nunca incluye claves                                                   |
+| Propuesta de Historia        | sessionStorage, `vidgen-story-review-{projectId}` | Ediciones pendientes de guardar, con revisión del proyecto                            |
+| Narración de Historia        | IndexedDB, almacén `narrations`                   | WAV PCM, duración real y pausas acústicas; admite MP3 antiguos con alineación         |
+| Ajustes de generación        | localStorage, `vidgen_defaults`                   | Preferencias locales                                                                  |
+| Proyectos, clips y versiones | IndexedDB, `vid-gen-studio`                       | Incluye blobs de vídeo, prompts y metadatos                                           |
+| Referencias                  | IndexedDB, almacén `assets`                       | Imágenes y vínculos a proyectos                                                       |
+| Cola y recuperación          | Registros de clips en IndexedDB                   | Solicitudes capturadas e identificadores remotos                                      |
+| Revisión de diálogo          | Memoria de la vista                               | Transcripción y observaciones temporales; no se guardan en el proyecto ni se exportan |
+| Archivos descargados         | Carpeta de descargas que elijas                   | Quedan fuera del control de la aplicación                                             |
 
 No hay cuentas ni sincronización entre dispositivos. IndexedDB y localStorage están separados por origen: protocolo, dominio y puerto. Un despliegue de prueba con otra URL no verá los datos del despliegue principal.
 
@@ -26,6 +27,10 @@ Al generar se envían a Google los prompts, los ajustes y las referencias selecc
 
 En Historia, Google recibe el contexto del guion y sus fragmentos para proponer escenas, reparto y estilo. Nano Banana recibe las descripciones e imágenes de referencia necesarias. Gemini TTS recibe el texto narrado, la voz elegida y la dirección de voz. La retención y el consumo dependen de Google. El guion y la configuración final se guardan en el proyecto local.
 
+Al confirmar **Analizar esta toma con Gemini**, se envían el vídeo seleccionado (hasta 14 MB) y las descripciones de apariencia y voz del reparto. Las palabras previstas se comparan localmente con la transcripción devuelta; no se incluyen en la solicitud de transcripción. Esta acción consume cuota de análisis de vídeo y no se ejecuta automáticamente al generar. Cerrar la revisión interrumpe el seguimiento local, sin garantizar la cancelación del procesamiento remoto o su coste. La transcripción no se guarda en IndexedDB y se pierde al recargar o cambiar de versión.
+
+Los escenarios y sus referencias forman parte de la misma información visual que se envía al generar. Las doce muestras de estilo incluidas en la interfaz son un recurso estático local; elegir un estilo no envía esas imágenes a Google como referencias.
+
 Google devuelve el resultado directamente o mediante una URI de sus servicios. El alojamiento estático entrega los archivos de la aplicación; su operador puede tener registros de acceso web. El código actual no incorpora un SDK de analítica ni envía los proyectos a un backend propio.
 
 La previsualización, los recortes, las miniaturas, el ZIP y el escalado local no envían los vídeos a Google. La primera exportación carga el motor FFmpeg desde el mismo sitio.
@@ -34,7 +39,7 @@ La previsualización, los recortes, las miniaturas, el ZIP y el escalado local n
 
 El manifiesto opcional `clips.json` puede incluir prompts, ajustes, títulos y vínculos de origen. Revísalo antes de compartir el ZIP. Un vídeo o imagen puede contener información personal aunque no lleve una API key.
 
-El ZIP de materiales de Historia incluye el guion completo, narraciones y descripciones visuales con tiempos de audio. Tampoco es una copia reimportable.
+El ZIP de materiales de Historia incluye el guion completo, narraciones, descripciones visuales y tiempos de audio. Cuando existen, añade las intervenciones con nombres de personajes, interpretación y acciones, los participantes y el lugar. Revisa estos metadatos antes de compartirlo. No incluye el resultado temporal de **Revisar diálogo** ni es una copia reimportable.
 
 No publiques claves, cabeceras de autorización, enlaces firmados, capturas de DevTools con solicitudes reales, trazas de navegador o volcados de IndexedDB sin limpiarlos. Usa los vídeos sintéticos de `e2e/fixtures` para reproducir problemas cuando sea posible.
 

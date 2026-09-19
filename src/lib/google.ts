@@ -655,7 +655,7 @@ export function googleInteraction<T>(
 }
 export async function storyJSON<T>(
   apiKey: string,
-  input: string,
+  input: string | Record<string, unknown>[],
   schema: Record<string, unknown>,
   options: { signal?: AbortSignal; invalidMessage?: string } = {},
 ): Promise<T> {

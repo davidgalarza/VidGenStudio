@@ -12,7 +12,6 @@ import {
 } from "./geminiSpeech";
 import {
   alignNarration,
-  makeStory,
   maxStoryDuration,
   storyPrompt,
   storyStyles,
@@ -24,7 +23,8 @@ import {
   planStoryVisuals,
 } from "./google";
 import { proposeNextBatch } from "./storyPlanner";
-import type { Asset, Narration } from "../types";
+import type { Asset, Narration, DialogueTurn } from "../types";
+import { planDialogueShots } from "./storyDialogue";
 export type StoryAction = "plan" | "references" | "produce";
 async function readStory(projectId: string) {
   const work = await db.readWorkspace();
@@ -95,6 +95,7 @@ export async function prepareStory(
       start: number;
       end: number;
       speaker?: string;
+      dialogue?: DialogueTurn[];
     }[];
     if (story.mode === "voiceover") {
       await progress(
@@ -151,28 +152,12 @@ export async function prepareStory(
             audio.cuts,
           ).map((span) => ({ ...span, text: block.text }));
     } else {
-      // Split each reviewed beat again for the final model; labels never become dialogue.
-      const parsed = makeStory({
-        ...story,
-        script: block.text,
-        characters: block.speaker
-          ? [
-              ...story.characters.filter((c) => c.name === block.speaker),
-              ...story.characters.filter((c) => c.name !== block.speaker),
-            ]
-          : story.characters,
-      });
-      pieces = parsed.blocks.map((part) => ({
-        text: part.text,
-        speaker: part.speaker || block.speaker,
+      pieces = planDialogueShots(story, block).map((shot) => ({
+        text: shot.text,
+        speaker: shot.speaker,
+        dialogue: shot.dialogue,
         start: 0,
-        end: storyVideoDuration(
-          Math.max(
-            part.text.trim().split(/\s+/).length / 2,
-            part.text.length / 11,
-          ) + 1.5,
-          story.settings,
-        ),
+        end: shot.duration,
       }));
     }
     await db.createStoryScenes(
@@ -185,7 +170,20 @@ export async function prepareStory(
           storyId: story.id,
           blockId: block.id,
           text: piece.text,
-          speaker: piece.speaker || block.speaker,
+          speaker: piece.dialogue
+            ? piece.speaker
+            : piece.speaker || block.speaker,
+          dialogue: piece.dialogue,
+          participants: piece.dialogue
+            ? [
+                ...new Set([
+                  ...piece.dialogue.map((t) => t.speaker),
+                  ...(block.participants || []),
+                ]),
+              ]
+            : block.participants,
+          locationName: block.locationName,
+          shotMode: block.shotMode || "auto",
           visual: block.visual
             ? `${block.visual}${pieces.length > 1 ? `\nTramo ${i + 1} de ${pieces.length}: desarrolla este momento de la acción manteniendo continuidad con los demás tramos.` : ""}`
             : "",
@@ -277,7 +275,7 @@ async function prepareReferences(
         .slice(0, 2) || [];
     const image = await generateStoryReference(
       getApiKey(),
-      `${storyStyles.find((s) => s.id === story.style)?.prompt}\nArt direction: ${story.direction}\n${current.prompt}\nSingle reusable visual reference. No lettering, watermarks, labels, or collage.`,
+      `${storyStyles.find((s) => s.id === story.style)?.prompt}\nArt direction: ${story.direction}\n${current.prompt}\n${current.locationName ? `EMPTY SET for recurring location ${current.locationName}. Establish its architecture, materials, furniture placement, lighting and camera geography. No people. Show a clear wide view that can be reused from several camera angles.` : "Single reusable visual reference."} No lettering, watermarks, labels, or collage.`,
       guides,
     );
     const asset: Asset = {
