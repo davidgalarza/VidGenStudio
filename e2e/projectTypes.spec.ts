@@ -429,3 +429,61 @@ test("legacy script drafts still open in the story workflow with their existing 
     "Este guion todavía no tiene una propuesta.",
   );
 });
+
+test("an incomplete proposal identifies and focuses the exact missing scene field", async ({
+  page,
+}) => {
+  await page.route(google, (route) => route.abort());
+  await seedLegacy(page);
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve) => {
+      const request = indexedDB.open("vid-gen-studio");
+      request.onsuccess = () => resolve(request.result);
+    });
+    const tx = db.transaction("projects", "readwrite");
+    const store = tx.objectStore("projects");
+    const project = await new Promise<Project>((resolve) => {
+      const request = store.get("legacy");
+      request.onsuccess = () => resolve(request.result);
+    });
+    project.story = {
+      ...project.story!,
+      phase: "review",
+      blocks: project.story!.blocks.map((block, index) => ({
+        ...block,
+        sceneIds: undefined,
+        text: index === 1 ? "" : block.text,
+        visual: index === 0 ? "" : block.visual,
+      })),
+    };
+    store.put(project);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  });
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Producir historia", exact: true })
+    .first()
+    .click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Hay 2 escenas incompletas. Empieza por la escena 1: añade la descripción visual.",
+  );
+  const firstVisual = page.getByLabel("Visual de la escena 1");
+  await expect(firstVisual).toBeFocused();
+  await expect(firstVisual).toHaveAttribute("aria-invalid", "true");
+  await expect(
+    page.getByText("Añade lo que se verá en esta escena.", { exact: true }),
+  ).toBeVisible();
+  await firstVisual.fill("Una planta iluminada por el sol.");
+  await page
+    .getByRole("button", { name: "Producir historia", exact: true })
+    .first()
+    .click();
+  await expect(page.getByRole("alert")).toContainText(
+    "La escena 2 está incompleta. Añade el texto.",
+  );
+  await expect(page.getByLabel("Texto de la escena 2")).toBeFocused();
+});

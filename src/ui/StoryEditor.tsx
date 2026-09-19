@@ -621,6 +621,13 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
   const sceneNodes = useRef(new Map<string, HTMLElement>());
   const castIssues = storyCastIssues(draft);
   const issueIds = new Set(castIssues.map((issue) => issue.blockId));
+  const contentIssues = draft.blocks.flatMap((block, index) => {
+    const missingText = !block.text.trim();
+    const missingVisual = !block.visual?.trim();
+    return missingText || missingVisual
+      ? [{ block, index, missingText, missingVisual }]
+      : [];
+  });
   function locateScene(id: string, pendingOnly = false) {
     setTab("scenes");
     setOnlyIssues(pendingOnly);
@@ -629,6 +636,19 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
       node?.scrollIntoView({ block: "center" });
       node
         ?.querySelector<HTMLSelectElement>("select")
+        ?.focus({ preventScroll: true });
+    });
+  }
+  function locateContentIssue(issue: (typeof contentIssues)[number]) {
+    setTab("scenes");
+    setOnlyIssues(false);
+    requestAnimationFrame(() => {
+      const node = sceneNodes.current.get(issue.block.id);
+      node?.scrollIntoView({ block: "center" });
+      node
+        ?.querySelector<HTMLTextAreaElement>(
+          `[data-story-field="${issue.missingText ? "text" : "visual"}"]`,
+        )
         ?.focus({ preventScroll: true });
     });
   }
@@ -666,6 +686,28 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
     setWorking(true);
     setError("");
     try {
+      if (!draft.blocks.length) {
+        setTab("scenes");
+        setOnlyIssues(false);
+        setError("Añade al menos una escena antes de guardar la propuesta.");
+        return;
+      }
+      if (contentIssues.length) {
+        const first = contentIssues[0];
+        const missing =
+          first.missingText && first.missingVisual
+            ? "el texto y la descripción visual"
+            : first.missingText
+              ? "el texto"
+              : "la descripción visual";
+        setError(
+          contentIssues.length === 1
+            ? `La escena ${first.index + 1} está incompleta. Añade ${missing}.`
+            : `Hay ${contentIssues.length} escenas incompletas. Empieza por la escena ${first.index + 1}: añade ${missing}.`,
+        );
+        locateContentIssue(first);
+        return;
+      }
       if (draft.mode === "spoken" && !draft.characters.length)
         throw new Error(
           "Añade al menos un personaje para el diálogo, o elige voz en off.",
@@ -867,6 +909,9 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
               const blockIssue = castIssues.find(
                 (issue) => issue.blockId === block.id,
               );
+              const contentIssue = contentIssues.find(
+                (issue) => issue.block.id === block.id,
+              );
               const ids =
                 block.referenceIds ??
                 storyReferenceIds(draft, block.speaker, block.referenceNames);
@@ -875,7 +920,7 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
               );
               return (
                 <article
-                  className={`story-planned-scene ${blockIssue ? "needs-character" : ""}`}
+                  className={`story-planned-scene ${blockIssue ? "needs-character" : ""} ${contentIssue ? "needs-content" : ""}`}
                   ref={(node) => {
                     if (node) sceneNodes.current.set(block.id, node);
                     else sceneNodes.current.delete(block.id);
@@ -919,7 +964,14 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                       <label>
                         Lo que se escuchará
                         <textarea
+                          data-story-field="text"
                           aria-label={`Texto de la escena ${i + 1}`}
+                          aria-invalid={contentIssue?.missingText || undefined}
+                          aria-describedby={
+                            contentIssue?.missingText
+                              ? `story-content-error-${block.id}`
+                              : undefined
+                          }
                           rows={3}
                           value={block.text}
                           onChange={(e) =>
@@ -930,7 +982,16 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                       <label>
                         Lo que se verá
                         <textarea
+                          data-story-field="visual"
                           aria-label={`Visual de la escena ${i + 1}`}
+                          aria-invalid={
+                            contentIssue?.missingVisual || undefined
+                          }
+                          aria-describedby={
+                            contentIssue?.missingVisual
+                              ? `story-content-error-${block.id}`
+                              : undefined
+                          }
                           rows={3}
                           value={block.visual || ""}
                           onChange={(e) =>
@@ -1048,6 +1109,18 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                         className="inline-error story-cast-inline-error"
                       >
                         {castIssueMessage(blockIssue)}
+                      </p>
+                    )}
+                    {contentIssue && (
+                      <p
+                        id={`story-content-error-${block.id}`}
+                        className="inline-error story-content-inline-error"
+                      >
+                        {contentIssue.missingText && contentIssue.missingVisual
+                          ? "Añade lo que se escuchará y lo que se verá."
+                          : contentIssue.missingText
+                            ? "Añade lo que se escuchará en esta escena."
+                            : "Añade lo que se verá en esta escena."}
                       </p>
                     )}
                   </div>

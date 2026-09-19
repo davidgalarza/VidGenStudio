@@ -1101,6 +1101,12 @@
 .story-planned-scene.needs-character {
   border-bottom-color: #806345;
 }
+.story-planned-scene.needs-content textarea[aria-invalid="true"] {
+  border-color: var(--warning);
+}
+.story-content-inline-error {
+  margin-top: 2px;
+}
 .story-issue-filter {
   display: flex;
   align-items: center;

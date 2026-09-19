@@ -785,11 +785,30 @@ export async function saveStoryDraft(projectId: string, story: Story) {
     throw new Error(
       "La producción ya comenzó. Edita cada clip desde sus controles.",
     );
-  if (
-    !story.blocks.length ||
-    story.blocks.some((b) => !b.text.trim() || !b.visual?.trim())
-  )
-    throw new Error("Cada escena necesita texto y una descripción visual.");
+  if (!story.blocks.length)
+    throw new Error("Añade al menos una escena antes de guardar la propuesta.");
+  const incomplete = story.blocks
+    .map((block, index) => ({
+      block,
+      index,
+      missingText: !block.text.trim(),
+      missingVisual: !block.visual?.trim(),
+    }))
+    .filter((item) => item.missingText || item.missingVisual);
+  if (incomplete.length) {
+    const first = incomplete[0];
+    const missing =
+      first.missingText && first.missingVisual
+        ? "el texto y la descripción visual"
+        : first.missingText
+          ? "el texto"
+          : "la descripción visual";
+    throw new Error(
+      incomplete.length === 1
+        ? `Completa ${missing} de la escena ${first.index + 1} · ${first.block.title || "Sin título"}.`
+        : `Hay ${incomplete.length} escenas incompletas. Empieza por la escena ${first.index + 1} · ${first.block.title || "Sin título"}: falta ${missing}.`,
+    );
+  }
   if (new Set(story.blocks.map((b) => b.id)).size !== story.blocks.length)
     throw new Error("Hay escenas duplicadas en la propuesta.");
   if (story.blocks.some((b) => b.text.length > 3000))

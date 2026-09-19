@@ -147,6 +147,37 @@ describe("script coverage and exact narration timing", () => {
   });
 });
 describe("story persistence and editable montage", () => {
+  it("identifies the first incomplete scene when a proposal cannot be saved", async () => {
+    const project = await db.createProject(
+      "Historia incompleta",
+      [],
+      DEFAULT_VIDEO,
+      "story",
+    );
+    const story = {
+      ...makeStory(config),
+      phase: "review" as const,
+      blocks: [
+        {
+          id: "complete",
+          title: "Inicio",
+          text: "Una idea comienza.",
+          visual: "Una mesa iluminada.",
+        },
+        {
+          id: "missing",
+          title: "Explicación",
+          text: "",
+          visual: "",
+        },
+      ],
+    };
+    await db.createStory(project.id, story);
+    await expect(db.saveStoryDraft(project.id, story)).rejects.toThrow(
+      "Completa el texto y la descripción visual de la escena 2 · Explicación.",
+    );
+  });
+
   it("atomically creates each block once, retains voice during regeneration and removes its audio with the project", async () => {
     const project = await db.createProject(
       "Historia",
