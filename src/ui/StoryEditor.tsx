@@ -1818,160 +1818,156 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
             </button>
           </>
         )}
-        {tab === "direction" && (
-          <div className="story-direction-panel">
-            <div className="field-row">
-              <label>
-                Cómo se escucha
-                <select
-                  aria-label="Modo de narración"
-                  value={draft.mode}
-                  onChange={(e) => {
-                    const mode = e.target.value as StoryMode;
-                    const styleProfile = profileForMode(
-                      draft.styleProfile ||
-                        createStyleProfile(draft.style, draft.mode),
-                      mode,
-                    );
-                    update({ mode, style: styleProfile.base, styleProfile });
-                  }}
-                >
-                  <option value="voiceover">Voz en off · Gemini TTS</option>
-                  <option value="spoken">
-                    Personajes hablando en el vídeo
-                  </option>
-                </select>
-              </label>
-              <StoryStylePicker
-                value={draft.style}
-                profile={draft.styleProfile}
-                mode={draft.mode}
-                disabled={busy}
-                onChange={(styleProfile) =>
-                  update({ style: styleProfile.base, styleProfile })
-                }
-              />
-            </div>
-            {draft.mode === "voiceover" ? (
-              <>
-                <label>
-                  Voz de Gemini
-                  <select
-                    aria-label="Voz de Gemini"
-                    value={draft.voiceId}
-                    onChange={(e) =>
-                      update({
-                        voiceId: e.target.value,
-                        voiceName: e.target.value,
-                      })
-                    }
-                  >
-                    {geminiVoices.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.id} · {v.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Dirección de voz
-                  <textarea
-                    aria-label="Dirección de voz"
-                    rows={2}
-                    value={draft.voiceDirection || ""}
-                    onChange={(e) => update({ voiceDirection: e.target.value })}
-                  />
-                </label>
-                <p className="hint">
-                  La misma voz y dirección en toda la historia. Se usa tu clave
-                  de Google; no necesitas otra conexión.
-                </p>
-              </>
-            ) : (
-              <p className="hint">
-                El vídeo genera las voces siguiendo la descripción de cada
-                personaje y mantiene sus referencias visuales. Esto ayuda a la
-                continuidad, pero no garantiza una voz idéntica entre vídeos.
-                Revisa el resultado de cada toma.
-              </p>
-            )}
+        <div className="story-direction-panel" hidden={tab !== "direction"}>
+          <div className="field-row">
             <label>
-              Dirección creativa
-              <textarea
-                aria-label="Dirección creativa"
-                rows={4}
-                value={draft.direction}
-                onChange={(e) => update({ direction: e.target.value })}
-              />
+              Cómo se escucha
+              <select
+                aria-label="Modo de narración"
+                value={draft.mode}
+                onChange={(e) => {
+                  const mode = e.target.value as StoryMode;
+                  const styleProfile = profileForMode(
+                    draft.styleProfile ||
+                      createStyleProfile(draft.style, draft.mode),
+                    mode,
+                  );
+                  update({ mode, style: styleProfile.base, styleProfile });
+                }}
+              >
+                <option value="voiceover">Voz en off · Gemini TTS</option>
+                <option value="spoken">Personajes hablando en el vídeo</option>
+              </select>
             </label>
-            <div className="field-row">
+            <StoryStylePicker
+              value={draft.style}
+              profile={draft.styleProfile}
+              mode={draft.mode}
+              disabled={busy}
+              onChange={(styleProfile) =>
+                update({ style: styleProfile.base, styleProfile })
+              }
+            />
+          </div>
+          {draft.mode === "voiceover" ? (
+            <>
               <label>
-                Formato
+                Voz de Gemini
                 <select
-                  aria-label="Formato de la historia"
-                  value={draft.settings.aspectRatio}
+                  aria-label="Voz de Gemini"
+                  value={draft.voiceId}
                   onChange={(e) =>
                     update({
-                      settings: {
-                        ...draft.settings,
-                        aspectRatio: e.target.value as "16:9" | "9:16",
-                      },
+                      voiceId: e.target.value,
+                      voiceName: e.target.value,
                     })
                   }
                 >
-                  <option value="16:9">Horizontal · 16:9</option>
-                  <option value="9:16">Vertical · 9:16</option>
-                </select>
-              </label>
-              <label>
-                Modelo de vídeo
-                <select
-                  aria-label="Modelo de la historia"
-                  value={draft.settings.model}
-                  onChange={(e) =>
-                    update({
-                      settings: {
-                        ...draft.settings,
-                        model: e.target.value as typeof OMNI_MODEL,
-                        resolution: "720p",
-                      },
-                    })
-                  }
-                >
-                  <option value={OMNI_MODEL}>Omni 1.1 Flash</option>
-                  <option value={VEO_MODEL}>Veo 3.1</option>
-                </select>
-              </label>
-              <label>
-                Resolución
-                <select
-                  aria-label="Resolución de la historia"
-                  value={draft.settings.resolution}
-                  onChange={(e) =>
-                    update({
-                      settings: {
-                        ...draft.settings,
-                        resolution: e.target
-                          .value as StoryConfig["settings"]["resolution"],
-                      },
-                    })
-                  }
-                >
-                  {(draft.settings.model === OMNI_MODEL
-                    ? ["360p", "720p", "1080p", "4k"]
-                    : ["720p", "1080p"]
-                  ).map((r) => (
-                    <option key={r}>{r}</option>
+                  {geminiVoices.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.id} · {v.label}
+                    </option>
                   ))}
                 </select>
               </label>
-            </div>
+              <label>
+                Dirección de voz
+                <textarea
+                  aria-label="Dirección de voz"
+                  rows={2}
+                  value={draft.voiceDirection || ""}
+                  onChange={(e) => update({ voiceDirection: e.target.value })}
+                />
+              </label>
+              <p className="hint">
+                La misma voz y dirección en toda la historia. Se usa tu clave de
+                Google; no necesitas otra conexión.
+              </p>
+            </>
+          ) : (
             <p className="hint">
-              Las duraciones se ajustan al audio real y al límite del modelo.
-              Una escena larga puede necesitar varios clips.
+              El vídeo genera las voces siguiendo la descripción de cada
+              personaje y mantiene sus referencias visuales. Esto ayuda a la
+              continuidad, pero no garantiza una voz idéntica entre vídeos.
+              Revisa el resultado de cada toma.
             </p>
+          )}
+          <label>
+            Dirección creativa
+            <textarea
+              aria-label="Dirección creativa"
+              rows={4}
+              value={draft.direction}
+              onChange={(e) => update({ direction: e.target.value })}
+            />
+          </label>
+          <div className="field-row">
+            <label>
+              Formato
+              <select
+                aria-label="Formato de la historia"
+                value={draft.settings.aspectRatio}
+                onChange={(e) =>
+                  update({
+                    settings: {
+                      ...draft.settings,
+                      aspectRatio: e.target.value as "16:9" | "9:16",
+                    },
+                  })
+                }
+              >
+                <option value="16:9">Horizontal · 16:9</option>
+                <option value="9:16">Vertical · 9:16</option>
+              </select>
+            </label>
+            <label>
+              Modelo de vídeo
+              <select
+                aria-label="Modelo de la historia"
+                value={draft.settings.model}
+                onChange={(e) =>
+                  update({
+                    settings: {
+                      ...draft.settings,
+                      model: e.target.value as typeof OMNI_MODEL,
+                      resolution: "720p",
+                    },
+                  })
+                }
+              >
+                <option value={OMNI_MODEL}>Omni 1.1 Flash</option>
+                <option value={VEO_MODEL}>Veo 3.1</option>
+              </select>
+            </label>
+            <label>
+              Resolución
+              <select
+                aria-label="Resolución de la historia"
+                value={draft.settings.resolution}
+                onChange={(e) =>
+                  update({
+                    settings: {
+                      ...draft.settings,
+                      resolution: e.target
+                        .value as StoryConfig["settings"]["resolution"],
+                    },
+                  })
+                }
+              >
+                {(draft.settings.model === OMNI_MODEL
+                  ? ["360p", "720p", "1080p", "4k"]
+                  : ["720p", "1080p"]
+                ).map((r) => (
+                  <option key={r}>{r}</option>
+                ))}
+              </select>
+            </label>
           </div>
-        )}
+          <p className="hint">
+            Las duraciones se ajustan al audio real y al límite del modelo. Una
+            escena larga puede necesitar varios clips.
+          </p>
+        </div>
       </fieldset>
       <footer className="story-review-footer">
         <p>

@@ -204,7 +204,7 @@ test("explicit narration, distinct visual catalogues, useful defaults and cancel
   ).toHaveCount(0);
   await capture(page, "styles-entry");
   await page.locator(".story-style-trigger").click();
-  await expect(gallery(page).locator(".story-style-option")).toHaveCount(24);
+  await expect(gallery(page).locator(".story-style-option")).toHaveCount(36);
   await capture(page, "styles-voiceover");
   await page.getByRole("button", { name: "Explicación", exact: true }).click();
   await expect(
@@ -223,7 +223,7 @@ test("explicit narration, distinct visual catalogues, useful defaults and cancel
   await expect(page.locator(".story-style-trigger")).toContainText("Realista");
   await page.getByLabel("Preferencia de narración").selectOption("spoken");
   await page.locator(".story-style-trigger").click();
-  await expect(gallery(page).locator(".story-style-option")).toHaveCount(20);
+  await expect(gallery(page).locator(".story-style-option")).toHaveCount(32);
   await expect(
     page.getByRole("button", { name: "Explicación", exact: true }),
   ).toHaveCount(0);
@@ -232,6 +232,9 @@ test("explicit narration, distinct visual catalogues, useful defaults and cancel
   await expect(gallery(page).locator(".story-style-option")).toHaveCount(1);
   await gallery(page).locator(".story-style-option").focus();
   await page.keyboard.press("Enter");
+  await page
+    .getByRole("button", { name: "Usar Marionetas", exact: true })
+    .click();
   await expect(page.locator(".story-style-trigger")).toBeFocused();
   await expect(page.locator(".story-style-trigger")).toContainText(
     "Marionetas",
@@ -406,6 +409,27 @@ test("style settings reach planning, generated references and every video and st
   await expect(page.locator(".story-style-trigger")).toContainText(
     "Arcilla azul",
   );
+  await page.getByRole("button", { name: /^Ajustar estilo/ }).click();
+  await page
+    .getByLabel("Nombre del estilo", { exact: true })
+    .fill("Ajuste pendiente con referencia");
+  await page.getByLabel("Color", { exact: true }).selectOption("warm");
+  await page
+    .getByLabel("Subir referencias de estilo")
+    .setInputFiles("e2e/fixtures/reference.png");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: /^Escenas \d+$/ }).click();
+  await page.getByRole("button", { name: "Voz y estilo", exact: true }).click();
+  await page.locator(".story-style-trigger").click();
+  await page
+    .getByRole("button", { name: "Continuar ajuste", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Nombre del estilo", { exact: true }),
+  ).toHaveValue("Ajuste pendiente con referencia");
+  await expect(page.getByLabel("Color", { exact: true })).toHaveValue("warm");
+  await expect(page.locator(".style-media-list li")).toHaveCount(1);
+  await page.getByRole("button", { name: "Cancelar", exact: true }).click();
   await page
     .getByRole("button", { name: "Producir historia", exact: true })
     .first()
@@ -494,5 +518,168 @@ test("closing an in-flight analysis aborts local work and ignores late output", 
   ).toHaveValue("Realista");
   await expect(
     page.getByRole("region", { name: "Propuesta de estilo de Gemini" }),
+  ).toHaveCount(0);
+});
+
+test("favorites survive reload, search understands uses, and details preserve gallery position", async ({
+  page,
+}) => {
+  const calls = await mock(page);
+  await init(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.locator(".story-style-trigger").click();
+  await capture(page, "styles-expanded-gallery");
+  await page.getByRole("button", { name: "Favoritos", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Tus favoritos, a mano" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Explorar estilos", exact: true })
+    .click();
+  await page
+    .getByLabel("Añadir Mapas y recorridos a favoritos", { exact: true })
+    .click();
+  const content = gallery(page).locator(".studio-dialog-content");
+  const scroll = await content.evaluate((el) => el.scrollTop);
+  expect(scroll).toBeGreaterThan(100);
+  await gallery(page)
+    .getByRole("button", {
+      name: "Mapas y recorridos Rutas, lugares y relaciones espaciales",
+      exact: true,
+    })
+    .click();
+  const detail = page.getByRole("dialog", {
+    name: "Mapas y recorridos",
+    exact: true,
+  });
+  expect(
+    await detail
+      .locator(".studio-dialog-content")
+      .evaluate((el) => el.scrollTop),
+  ).toBe(0);
+  await expect(
+    detail
+      .getByRole("heading", { name: "Mapas y recorridos", exact: true })
+      .first(),
+  ).toBeFocused();
+  await expect(page.locator(".story-style-trigger")).toContainText("Realista");
+  await capture(page, "styles-expanded-detail");
+  await page.getByRole("button", { name: "Ver estilos", exact: true }).click();
+  expect(await content.evaluate((el) => el.scrollTop)).toBeCloseTo(scroll, 0);
+  await page.getByLabel("Buscar estilo").fill("geografia ruta");
+  await expect(gallery(page).locator(".story-style-option")).toHaveCount(1);
+  await page.getByRole("button", { name: "Favoritos", exact: true }).click();
+  await expect(gallery(page).locator(".story-style-option")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await page.reload();
+  await page.locator(".story-style-trigger").click();
+  await page.getByRole("button", { name: "Favoritos", exact: true }).click();
+  await expect(gallery(page).locator(".story-style-option")).toHaveCount(1);
+  await page
+    .getByLabel("Quitar Mapas y recorridos de favoritos", { exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Tus favoritos, a mano" }),
+  ).toBeVisible();
+  expect(calls.analysis + calls.plan + calls.images + calls.videos).toBe(0);
+});
+
+test("comparison is bounded, shows meaningful settings and applies only the chosen style", async ({
+  page,
+}) => {
+  await mock(page);
+  await init(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.locator(".story-style-trigger").click();
+  for (const name of [
+    "Mapas y recorridos",
+    "Demostración cenital",
+    "Pizarra de tiza",
+  ])
+    await page.getByLabel(`Comparar ${name}`, { exact: true }).click();
+  await expect(
+    page.getByLabel("Comparar Producto en 3D", { exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Comparar 3", exact: true }).click();
+  const comparison = page.getByRole("dialog", {
+    name: "Comparar estilos",
+    exact: true,
+  });
+  await expect(comparison.locator(".style-inspection article")).toHaveCount(3);
+  await expect(
+    comparison.getByText("Demostraciones visuales", { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".story-style-trigger")).toContainText("Realista");
+  await capture(page, "styles-expanded-comparison");
+  await comparison
+    .getByLabel("Quitar Pizarra de tiza de la comparación", { exact: true })
+    .click();
+  await expect(comparison.locator(".style-inspection article")).toHaveCount(2);
+  await page
+    .getByRole("button", { name: "Usar Demostración cenital", exact: true })
+    .click();
+  await expect(page.locator(".story-style-trigger")).toContainText(
+    "Demostración cenital",
+  );
+  await page.reload();
+  await expect(page.locator(".story-style-trigger")).toContainText(
+    "Demostración cenital",
+  );
+  await page.getByRole("button", { name: /^Ajustar estilo/ }).click();
+  await expect(page.getByLabel("Movimiento de cámara")).toHaveValue("locked");
+  await expect(page.getByLabel("Cómo acompaña la explicación")).toHaveValue(
+    "visual",
+  );
+});
+
+test("pending adjustments survive navigation and closing; custom styles can be compared and favorited", async ({
+  page,
+}) => {
+  await mock(page);
+  await init(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByLabel("Preferencia de narración").selectOption("spoken");
+  await page.locator(".story-style-trigger").click();
+  await page.getByLabel("Buscar estilo").fill("oleo");
+  await page.getByLabel("Personalizar Óleo animado", { exact: true }).click();
+  await page
+    .getByLabel("Nombre del estilo", { exact: true })
+    .fill("Óleo de invierno");
+  await page.getByLabel("Color", { exact: true }).selectOption("cool");
+  await page.keyboard.press("Escape");
+  await page.locator(".story-style-trigger").click();
+  await page
+    .getByRole("button", { name: "Continuar ajuste", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Nombre del estilo", { exact: true }),
+  ).toHaveValue("Óleo de invierno");
+  await expect(page.getByLabel("Color", { exact: true })).toHaveValue("cool");
+  await page
+    .getByRole("button", { name: "Guardar en Mis estilos", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("Guardado");
+  await page.getByRole("button", { name: "Ver estilos", exact: true }).click();
+  await page.getByRole("button", { name: "Mis estilos", exact: true }).click();
+  await page
+    .getByLabel("Añadir Óleo de invierno a favoritos", { exact: true })
+    .click();
+  await page.getByLabel("Comparar Óleo de invierno", { exact: true }).click();
+  await page.getByRole("button", { name: "Todos", exact: true }).click();
+  await page.getByLabel("Buscar estilo").fill("oleo");
+  await page.getByLabel("Comparar Óleo animado", { exact: true }).click();
+  await page.getByRole("button", { name: "Comparar 2", exact: true }).click();
+  await expect(page.getByText("Frío", { exact: true })).toBeVisible();
+  await page
+    .getByRole("button", { name: "Usar Óleo de invierno", exact: true })
+    .click();
+  await page.reload();
+  await page.locator(".story-style-trigger").click();
+  await page.getByRole("button", { name: "Favoritos", exact: true }).click();
+  await expect(gallery(page).locator(".story-style-option")).toContainText(
+    "Óleo de invierno",
+  );
+  await expect(
+    page.getByRole("button", { name: "Continuar ajuste", exact: true }),
   ).toHaveCount(0);
 });

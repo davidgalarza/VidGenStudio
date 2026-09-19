@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Check,
   ChevronDown,
@@ -10,6 +10,8 @@ import {
   Upload,
   X,
   Trash2,
+  Star,
+  Columns3,
 } from "lucide-react";
 import type {
   StoryStyle,
@@ -37,29 +39,19 @@ import {
   validateStyleMedia,
   STYLE_MEDIA_ACCEPT,
 } from "../lib/styleLibrary";
+import {
+  browseStyles,
+  matchesStyleSearch,
+  readStyleFavorites,
+  writeStyleFavorites,
+  styleKey,
+} from "../lib/styleBrowsing";
+import { StyleInspection, type StyleChoice } from "./StyleInspection";
 import { getApiKey } from "../lib/settings";
 import { useBlobUrl } from "../lib/useBlobUrl";
 import { StudioDialog } from "./StudioDialog";
-import atlas from "../assets/story-styles.png";
-import voiceoverAtlas from "../assets/story-styles-voiceover.png";
-import spokenAtlas from "../assets/story-styles-spoken.png";
-
-// Extend the charcoal studio: visual selection first, optional adjustments next.
-// A local style snapshot belongs to the project; saved styles are explicit reusable copies.
-export function StyleSample({ value }: { value: StoryStyle }) {
-  const index = Math.max(
-    0,
-    storyStyles.findIndex((s) => s.id === value),
-  );
-  const tile = index < 12 ? index : index < 24 ? index - 12 : index - 24;
-  const style: CSSProperties = {
-    backgroundImage: `url(${index < 12 ? atlas : index < 24 ? voiceoverAtlas : spokenAtlas})`,
-    backgroundPosition: `${((tile % 4) / 3) * 100}% ${(Math.floor(tile / 4) / 2) * 100}%`,
-  };
-  return (
-    <span className="story-style-sample" style={style} aria-hidden="true" />
-  );
-}
+import { StyleSample } from "./StyleSample";
+export { StyleSample } from "./StyleSample";
 function MediaPreview({ media }: { media: StyleMedia }) {
   const url = useBlobUrl(media.blob);
   return media.blob.type.startsWith("video/") ? (
@@ -90,6 +82,13 @@ export function StoryStylePicker({
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [detail, setDetail] = useState<StyleChoice>();
+  const [comparison, setComparison] = useState<StyleChoice[]>([]);
+  const [comparing, setComparing] = useState(false);
+  const [favorites, setFavorites] = useState(readStyleFavorites);
+  const [pending, setPending] = useState<
+    StyleChoice & { analysis?: StoryStyleProfile }
+  >();
   const [library, setLibrary] = useState<SavedStoryStyle[]>([]);
   const [scope, setScope] = useState("Todos");
   const [query, setQuery] = useState("");
@@ -112,7 +111,11 @@ export function StoryStylePicker({
     : createStyleProfile(value, mode);
   const title = editing
     ? "Configura tu estilo"
-    : "Elige el estilo de tu historia";
+    : comparing
+      ? "Comparar estilos"
+      : detail
+        ? detail.profile.name
+        : "Elige el estilo de tu historia";
   const modeLabel = mode === "spoken" ? "Personajes hablando" : "Voz en off";
   useEffect(() => () => abort.current?.abort(), []);
   async function refreshLibrary() {
@@ -129,6 +132,9 @@ export function StoryStylePicker({
   }
   async function show(edit: boolean) {
     const requestId = ++loadId.current;
+    setDetail(undefined);
+    setComparing(false);
+    setComparison((p) => p.filter((s) => s.profile.mode === mode));
     setScope("Todos");
     setQuery("");
     setEditorTab("settings");
@@ -151,6 +157,8 @@ export function StoryStylePicker({
   ) {
     loadId.current++;
     setEditorTab("settings");
+    setDetail(undefined);
+    setComparing(false);
     setDraft({
       ...structuredClone(next),
       mode,
@@ -164,7 +172,16 @@ export function StoryStylePicker({
     setError("");
     setNotice("");
   }
-  function close() {
+  function rememberDraft() {
+    setPending({
+      profile: structuredClone(draft),
+      media: [...media],
+      analysis,
+    });
+  }
+  function close(discard = false) {
+    if (editing && !discard) rememberDraft();
+    if (discard) setPending(undefined);
     loadId.current++;
     abort.current?.abort();
     abort.current = null;
@@ -234,6 +251,11 @@ export function StoryStylePicker({
         copy ? undefined : draft.presetId,
       );
       setDraft(record.profile);
+      setComparison((items) =>
+        items.map((item) =>
+          item.profile.presetId === record.id ? record : item,
+        ),
+      );
       await refreshLibrary();
       setNotice("Guardado en Mis estilos de este navegador.");
     } catch (e) {
@@ -246,6 +268,10 @@ export function StoryStylePicker({
     try {
       await deleteStyle(id);
       setRemoveId("");
+      setComparison((p) => p.filter((s) => s.profile.presetId !== id));
+      const nextFavorites = favorites.filter((key) => key !== id);
+      setFavorites(nextFavorites);
+      writeStyleFavorites(nextFavorites);
       await refreshLibrary();
       setNotice(
         "Estilo eliminado de la biblioteca. Los proyectos que lo usan conservan sus ajustes.",
@@ -262,18 +288,59 @@ export function StoryStylePicker({
     "detail",
     mode === "spoken" ? "acting" : "explanation",
   ];
-  const filtered = stylesForMode(mode).filter(
-    (s) =>
-      (scope === "Todos" || styleCategory(s.id) === scope) &&
-      `${s.label} ${styleDescription(s.id)}`
-        .toLocaleLowerCase()
-        .includes(query.toLocaleLowerCase()),
-  );
+  function toggleFavorite(choice: StyleChoice) {
+    const key = styleKey(choice.profile);
+    const next = favorites.includes(key)
+      ? favorites.filter((id) => id !== key)
+      : [...favorites, key];
+    setFavorites(next);
+    if (!writeStyleFavorites(next))
+      setError(
+        "Puedes usar favoritos en esta sesión, pero el navegador no permitió guardarlos.",
+      );
+  }
+  function toggleCompare(choice: StyleChoice) {
+    const key = styleKey(choice.profile);
+    const exists = comparison.some((c) => styleKey(c.profile) === key);
+    const next = exists
+      ? comparison.filter((c) => styleKey(c.profile) !== key)
+      : [...comparison, choice].slice(0, 3);
+    setComparison(next);
+    if (next.length < 2) setComparing(false);
+  }
+  function useChoice(choice: StyleChoice) {
+    onChange(structuredClone(choice.profile));
+    close(true);
+  }
+  const filtered = browseStyles(mode)
+    .filter(
+      (s) =>
+        (scope === "Todos" ||
+          scope === "Favoritos" ||
+          styleCategory(s.id) === scope) &&
+        (scope !== "Favoritos" || favorites.includes(`builtin:${s.id}`)) &&
+        matchesStyleSearch(s.id, query),
+    )
+    .map(
+      (s) =>
+        ({ profile: createStyleProfile(s.id, mode), media: [] }) as StyleChoice,
+    );
   const saved = library.filter(
     (s) =>
       s.profile.mode === mode &&
-      s.profile.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
+      (scope !== "Favoritos" || favorites.includes(s.id)) &&
+      matchesStyleSearch(
+        s.profile.base,
+        query,
+        s.profile.name + " " + s.profile.instructions,
+      ),
   );
+  const choices: StyleChoice[] =
+    scope === "Mis estilos"
+      ? saved
+      : scope === "Favoritos"
+        ? [...saved, ...filtered]
+        : filtered;
   return (
     <div className="story-style-control">
       <span className="field-caption">Estilo visual</span>
@@ -301,7 +368,16 @@ export function StoryStylePicker({
         <StudioDialog
           title={title}
           wide
-          onClose={close}
+          onClose={() => close()}
+          viewKey={
+            editing
+              ? "editor"
+              : comparing
+                ? "compare"
+                : detail
+                  ? `detail:${styleKey(detail.profile)}`
+                  : "gallery"
+          }
           busy={busy && !abort.current}
         >
           {editing ? (
@@ -311,6 +387,7 @@ export function StoryStylePicker({
                   className="button small"
                   disabled={busy}
                   onClick={() => {
+                    rememberDraft();
                     setEditing(false);
                     setAnalysis(undefined);
                     setError("");
@@ -636,7 +713,7 @@ export function StoryStylePicker({
                 <button
                   className="button"
                   disabled={busy && !abort.current}
-                  onClick={close}
+                  onClick={() => close(true)}
                 >
                   Cancelar
                 </button>
@@ -645,21 +722,33 @@ export function StoryStylePicker({
                   disabled={busy || !validStyleProfile(draft) || !!analysis}
                   onClick={() => {
                     onChange(structuredClone(draft));
-                    close();
+                    close(true);
                   }}
                 >
                   Usar estos ajustes
                 </button>
               </footer>
             </>
+          ) : comparing || detail ? (
+            <StyleInspection
+              choices={comparing ? comparison : [detail!]}
+              comparing={comparing}
+              onBack={() => {
+                setComparing(false);
+                setDetail(undefined);
+              }}
+              onUse={useChoice}
+              onEdit={(c) => editStyle(c.profile, c.media)}
+              onRemove={toggleCompare}
+            />
           ) : (
             <>
               <div className="style-gallery-heading">
                 <div>
                   <p>{modeLabel}</p>
                   <span className="hint">
-                    {stylesForMode(mode).length} estilos listos para usar. Todos
-                    se pueden ajustar.
+                    {stylesForMode(mode).length} estilos listos para usar. Abre
+                    una muestra para ver sus detalles.
                   </span>
                 </div>
                 <button
@@ -674,6 +763,33 @@ export function StoryStylePicker({
                   <Plus size={15} /> Crear estilo
                 </button>
               </div>
+              {pending && pending.profile.mode === mode && (
+                <div className="style-pending">
+                  <div>
+                    <strong>{pending.profile.name}</strong>
+                    <span>
+                      Sin aplicar. Se conserva al cerrar este panel; se descarta
+                      al recargar o salir de esta vista.
+                    </span>
+                  </div>
+                  <button
+                    className="button small"
+                    onClick={() => {
+                      editStyle(pending.profile, pending.media);
+                      setAnalysis(pending.analysis);
+                    }}
+                  >
+                    Continuar ajuste
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label="Descartar ajuste pendiente"
+                    onClick={() => setPending(undefined)}
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+              )}
               <label className="style-search">
                 Buscar estilo
                 <input
@@ -681,7 +797,11 @@ export function StoryStylePicker({
                   aria-label="Buscar estilo"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Por nombre o acabado…"
+                  placeholder={
+                    mode === "voiceover"
+                      ? "Prueba «mapas», «pizarra» o «producto 3D»"
+                      : "Prueba «entrevista», «acuarela» o «3D»"
+                  }
                 />
               </label>
               <div className="style-filters" aria-label="Filtrar estilos">
@@ -690,6 +810,7 @@ export function StoryStylePicker({
                   "Realismo",
                   "Animación",
                   ...(mode === "voiceover" ? ["Explicación"] : []),
+                  "Favoritos",
                   "Mis estilos",
                 ].map((s) => (
                   <button
@@ -698,9 +819,27 @@ export function StoryStylePicker({
                     aria-pressed={scope === s}
                     onClick={() => setScope(s)}
                   >
-                    {s}
+                    {s === "Favoritos" && <Star size={13} />} {s}
                   </button>
                 ))}
+              </div>
+              <div className="style-result-summary">
+                <span role="status">
+                  {choices.length} {choices.length === 1 ? "estilo" : "estilos"}
+                  {scope !== "Todos" ? ` · ${scope.toLocaleLowerCase()}` : ""}
+                  {query ? ` para «${query}»` : ""}
+                </span>
+                {(query || scope !== "Todos") && (
+                  <button
+                    className="style-adjust-link"
+                    onClick={() => {
+                      setQuery("");
+                      setScope("Todos");
+                    }}
+                  >
+                    Ver todos
+                  </button>
+                )}
               </div>
               {notice && (
                 <p className="hint" role="status">
@@ -712,147 +851,192 @@ export function StoryStylePicker({
                   {error}
                 </p>
               )}
-              {scope === "Mis estilos" ? (
-                <>
-                  {!saved.length && (
-                    <div className="style-empty">
-                      <h3>
-                        {query
-                          ? "No hay coincidencias"
-                          : "Tu biblioteca de estilos"}
-                      </h3>
-                      <p>
-                        {query
-                          ? "Prueba otro nombre o borra la búsqueda."
-                          : "Crea un estilo o clona uno de la biblioteca. Podrás reutilizar sus ajustes y referencias en tus próximas historias."}
-                      </p>
-                      <button
-                        className="button"
-                        onClick={() =>
-                          editStyle({
-                            ...createStyleProfile("realistic", mode),
-                            name: "Mi estilo",
-                          })
-                        }
-                      >
-                        Crear mi primer estilo
-                      </button>
-                    </div>
+              {!choices.length && (
+                <div className="style-empty">
+                  <h3>
+                    {query
+                      ? "No hay coincidencias"
+                      : scope === "Favoritos"
+                        ? "Tus favoritos, a mano"
+                        : "Tu biblioteca de estilos"}
+                  </h3>
+                  <p>
+                    {query
+                      ? "Busca por técnica, material o uso. También puedes volver a ver todos los estilos."
+                      : scope === "Favoritos"
+                        ? "Marca la estrella de un estilo para encontrarlo aquí en tus próximas historias."
+                        : "Crea un estilo o clona uno de la biblioteca. Podrás reutilizar sus ajustes y referencias."}
+                  </p>
+                  <button
+                    className="button"
+                    onClick={() => {
+                      setQuery("");
+                      setScope("Todos");
+                    }}
+                  >
+                    Explorar estilos
+                  </button>
+                  {scope === "Mis estilos" && !query && (
+                    <button
+                      className="button"
+                      onClick={() =>
+                        editStyle({
+                          ...createStyleProfile("realistic", mode),
+                          name: "Mi estilo",
+                        })
+                      }
+                    >
+                      Crear mi primer estilo
+                    </button>
                   )}
-                  <div className="story-style-gallery">
-                    {saved.map((s) => (
-                      <article className="style-library-item" key={s.id}>
+                </div>
+              )}
+              <div className="story-style-gallery">
+                {choices.map((choice) => {
+                  const p = choice.profile;
+                  const key = styleKey(p);
+                  const active = styleKey(selected) === key;
+                  const favorite = favorites.includes(key);
+                  const inComparison = comparison.some(
+                    (c) => styleKey(c.profile) === key,
+                  );
+                  return (
+                    <article className="style-library-item" key={key}>
+                      <button
+                        className={`story-style-option ${active ? "selected" : ""}`}
+                        aria-pressed={active}
+                        onClick={() => setDetail(choice)}
+                      >
+                        <StyleSample value={p.base} />
+                        <span className="story-style-option-label">
+                          <strong>{p.name}</strong>
+                          {active && <Check size={15} />}
+                        </span>
+                        <small>
+                          {p.presetId
+                            ? "Ajustes personalizados"
+                            : styleDescription(p.base)}
+                        </small>
+                      </button>
+                      <div className="style-card-tools">
                         <button
-                          className={`story-style-option ${selected.presetId === s.id ? "selected" : ""}`}
-                          aria-pressed={selected.presetId === s.id}
-                          onClick={() => {
-                            onChange(structuredClone(s.profile));
-                            close();
-                          }}
+                          className="style-adjust-link"
+                          aria-label={`${p.presetId ? "Editar" : "Personalizar"} ${p.name}`}
+                          onClick={() => editStyle(p, choice.media)}
                         >
-                          <StyleSample value={s.profile.base} />
-                          <span className="story-style-option-label">
-                            <strong>{s.profile.name}</strong>
-                            {selected.presetId === s.id && <Check size={15} />}
-                          </span>
-                          <small>
-                            {s.media.length
-                              ? `${s.media.length} referencias guardadas`
-                              : "Ajustes personalizados"}
-                          </small>
+                          <Settings2 size={14} />
+                          {p.presetId ? "Editar" : "Personalizar"}
                         </button>
-                        <div className="style-item-actions">
+                        <button
+                          className="icon-button"
+                          aria-label={`${favorite ? "Quitar" : "Añadir"} ${p.name} ${favorite ? "de" : "a"} favoritos`}
+                          aria-pressed={favorite}
+                          title={
+                            favorite
+                              ? "Quitar de favoritos"
+                              : "Guardar en favoritos"
+                          }
+                          onClick={() => toggleFavorite(choice)}
+                        >
+                          <Star
+                            size={16}
+                            fill={favorite ? "currentColor" : "none"}
+                          />
+                        </button>
+                        <button
+                          className="icon-button"
+                          aria-label={`${inComparison ? "Quitar" : "Comparar"} ${p.name}${inComparison ? " de la comparación" : ""}`}
+                          aria-pressed={inComparison}
+                          title={
+                            inComparison
+                              ? "Quitar de la comparación"
+                              : comparison.length >= 3
+                                ? "Compara hasta 3 estilos"
+                                : "Añadir a la comparación"
+                          }
+                          disabled={!inComparison && comparison.length >= 3}
+                          onClick={() => toggleCompare(choice)}
+                        >
+                          <Columns3 size={16} />
+                        </button>
+                      </div>
+                      {p.presetId && (
+                        <div className="style-saved-tools">
                           <button
-                            className="button small"
-                            onClick={() => editStyle(s.profile, s.media)}
-                            aria-label={`Editar ${s.profile.name}`}
+                            className="style-adjust-link"
+                            aria-label={`Clonar ${p.name}`}
+                            onClick={() => editStyle(p, choice.media, true)}
                           >
-                            <Settings2 size={14} /> Editar
+                            <Copy size={14} /> Clonar
                           </button>
                           <button
                             className="icon-button"
-                            onClick={() => editStyle(s.profile, s.media, true)}
-                            aria-label={`Clonar ${s.profile.name}`}
-                          >
-                            <Copy size={15} />
-                          </button>
-                          <button
-                            className="icon-button"
-                            aria-label={`Eliminar ${s.profile.name}`}
-                            onClick={() => setRemoveId(s.id)}
+                            aria-label={`Eliminar ${p.name}`}
+                            onClick={() => setRemoveId(p.presetId!)}
                           >
                             <Trash2 size={15} />
                           </button>
                         </div>
-                        {removeId === s.id && (
-                          <div className="style-remove-confirm">
-                            <p>
-                              ¿Eliminar de Mis estilos? Tus proyectos conservan
-                              sus ajustes.
-                            </p>
-                            <button
-                              className="button small"
-                              onClick={() => void remove(s.id)}
-                            >
-                              Eliminar estilo
-                            </button>
-                            <button
-                              className="button small"
-                              onClick={() => setRemoveId("")}
-                            >
-                              Conservar
-                            </button>
-                          </div>
-                        )}
-                      </article>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="story-style-gallery">
-                    {filtered.map((s) => (
-                      <article className="style-library-item" key={s.id}>
-                        <button
-                          className={`story-style-option ${!selected.presetId && value === s.id ? "selected" : ""}`}
-                          aria-pressed={!selected.presetId && value === s.id}
-                          onClick={() => {
-                            onChange(createStyleProfile(s.id, mode));
-                            close();
-                          }}
-                        >
-                          <StyleSample value={s.id} />
-                          <span className="story-style-option-label">
-                            <strong>{s.label}</strong>
-                            {!selected.presetId && value === s.id && (
-                              <Check size={15} />
-                            )}
-                          </span>
-                          <small>{styleDescription(s.id)}</small>
-                        </button>
-                        <button
-                          className="style-adjust-link"
-                          aria-label={`Personalizar ${s.label}`}
-                          onClick={() =>
-                            editStyle(createStyleProfile(s.id, mode))
-                          }
-                        >
-                          <Settings2 size={13} /> Personalizar
-                        </button>
-                      </article>
-                    ))}
-                  </div>
-                  {!filtered.length && (
-                    <p className="style-empty">
-                      No hay estilos con esa búsqueda. Prueba otro término.
-                    </p>
-                  )}
-                </>
-              )}
+                      )}
+                      {p.presetId && removeId === p.presetId && (
+                        <div className="style-remove-confirm">
+                          <p>
+                            ¿Eliminar de Mis estilos? Tus proyectos conservan
+                            sus ajustes.
+                          </p>
+                          <button
+                            className="button small"
+                            onClick={() => void remove(p.presetId!)}
+                          >
+                            Eliminar estilo
+                          </button>
+                          <button
+                            className="button small"
+                            onClick={() => setRemoveId("")}
+                          >
+                            Conservar
+                          </button>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
               <p className="hint style-gallery-note">
-                Muestras ilustrativas del acabado visual, sin plantillas de
-                contenido. Tu guion define la historia.
+                Abre una muestra para ver sus detalles. Son ejemplos del acabado
+                visual; tu guion define la historia.
               </p>
+              {comparison.length > 0 && (
+                <div className="style-comparison-tray">
+                  <div className="style-comparison-selection">
+                    {comparison.map((c) => (
+                      <button
+                        key={styleKey(c.profile)}
+                        aria-label={`Quitar ${c.profile.name} de la comparación`}
+                        title={`Quitar ${c.profile.name}`}
+                        onClick={() => toggleCompare(c)}
+                      >
+                        <StyleSample value={c.profile.base} />
+                        <span>{c.profile.name}</span>
+                        <X size={13} />
+                      </button>
+                    ))}
+                  </div>
+                  <div className="style-comparison-controls">
+                    <span>
+                      {comparison.length}/3
+                      {comparison.length === 1 ? " · Elige otro estilo" : ""}
+                    </span>
+                    <button
+                      className="button primary"
+                      disabled={comparison.length < 2}
+                      onClick={() => setComparing(true)}
+                    >
+                      Comparar {comparison.length}
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </StudioDialog>

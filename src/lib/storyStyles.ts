@@ -6,6 +6,8 @@ import type {
   StyleParameters,
 } from "../types";
 
+import { styleExtensions } from "./styleExtensions";
+
 export const storyStyles: { id: StoryStyle; label: string; prompt: string }[] =
   [
     {
@@ -196,13 +198,18 @@ const extra: [StoryStyle, string, string][] = [
 ];
 storyStyles.push(
   ...extra.map(([id, label, prompt]) => ({ id, label, prompt })),
+  ...styleExtensions.map(({ id, label, prompt }) => ({ id, label, prompt })),
 );
 const voiceoverOnly: StoryStyle[] = [
   "explainer",
   "infographic",
   ...extra.slice(0, 12).map((s) => s[0]),
+  ...styleExtensions.filter((s) => s.mode === "voiceover").map((s) => s.id),
 ];
-const spokenOnly = extra.slice(12).map((s) => s[0]);
+const spokenOnly = [
+  ...extra.slice(12).map((s) => s[0]),
+  ...styleExtensions.filter((s) => s.mode === "spoken").map((s) => s.id),
+];
 export const stylesForMode = (mode: StoryMode) =>
   storyStyles.filter(
     (s) => !(mode === "spoken" ? voiceoverOnly : spokenOnly).includes(s.id),
@@ -210,6 +217,8 @@ export const stylesForMode = (mode: StoryMode) =>
 export function styleCategory(
   id: StoryStyle,
 ): "Realismo" | "Animación" | "Explicación" {
+  const extension = styleExtensions.find((s) => s.id === id);
+  if (extension) return extension.category;
   if (
     [
       "realistic",
@@ -231,7 +240,7 @@ export function styleCategory(
     return "Explicación";
   return "Animación";
 }
-const descriptions: Record<StoryStyle, string> = {
+const descriptions: Partial<Record<StoryStyle, string>> = {
   realistic: "Luz natural y texturas reales",
   cinematic: "Luz y encuadres de cine",
   cartoon: "Dibujo 2D expresivo",
@@ -267,7 +276,10 @@ const descriptions: Record<StoryStyle, string> = {
   rotoscope: "Movimiento real, acabado ilustrado",
   lowpoly: "Geometría sencilla y expresiva",
 };
-export const styleDescription = (id: StoryStyle) => descriptions[id];
+export const styleDescription = (id: StoryStyle) =>
+  styleExtensions.find((s) => s.id === id)?.description ||
+  descriptions[id] ||
+  "";
 export const parameterOptions = {
   pace: {
     label: "Ritmo visual",
@@ -431,7 +443,11 @@ export function defaultStyleParameters(
     rotoscope: { lighting: "flat" },
     lowpoly: { lighting: "soft", detail: "minimal", acting: "expressive" },
   };
-  Object.assign(result, overrides[base]);
+  Object.assign(
+    result,
+    overrides[base],
+    styleExtensions.find((s) => s.id === base)?.defaults,
+  );
   if (mode === "spoken") result.explanation = "none";
   return result;
 }

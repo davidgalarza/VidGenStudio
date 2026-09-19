@@ -611,6 +611,9 @@ test("initial guidance survives leaving the script and a review conflict offers 
     })
     .click();
   await page
+    .getByRole("button", { name: "Usar Animación 2D", exact: true })
+    .click();
+  await page
     .getByLabel("Lo que tienes en mente")
     .fill("Explicación para niños, colores planos");
   await page.getByLabel("Crear también las referencias visuales").uncheck();

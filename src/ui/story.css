@@ -1315,6 +1315,9 @@
   align-items: center;
   gap: 12px;
 }
+.story-direction-panel[hidden] {
+  display: none;
+}
 .story-direction-panel {
   display: grid;
   gap: 22px;
@@ -1849,6 +1852,308 @@
   }
   .style-editor-layout[data-mobile-tab="settings"] .style-editor-preview,
   .style-editor-layout[data-mobile-tab="references"] .style-editor-fields {
+    display: none;
+  }
+}
+
+/* Browse a large catalogue without losing the current project direction. */
+.style-result-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 38px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.style-card-tools,
+.style-saved-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+}
+.style-card-tools > .style-adjust-link,
+.style-saved-tools > .style-adjust-link {
+  flex: 1;
+  min-height: 38px;
+  padding-left: 5px;
+}
+.style-card-tools .icon-button {
+  flex-shrink: 0;
+  width: 36px;
+  height: 38px;
+}
+.style-card-tools [aria-pressed="true"] {
+  background: var(--raised);
+  color: var(--text);
+}
+.style-pending {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-block: 1px solid var(--line);
+}
+.style-pending > div {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.style-pending span {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+.style-inspection-heading {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.style-inspection-heading > .button {
+  flex-shrink: 0;
+}
+.style-inspection-heading p {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0;
+  line-height: 1.55;
+}
+.style-inspection article {
+  min-width: 0;
+}
+.style-inspection.is-detail > article {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 28px;
+  align-items: start;
+}
+.style-inspection-image {
+  position: relative;
+  min-width: 0;
+}
+.style-inspection-image .story-style-sample {
+  width: 100%;
+  border-radius: 8px;
+}
+.style-inspection-image > .icon-button {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  background: var(--panel);
+}
+.style-inspection-image > small {
+  display: block;
+  color: var(--muted);
+  margin: 9px 0 18px;
+  font-size: 0.74rem;
+}
+.style-inspection-info {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.style-inspection-info h3 {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+}
+.style-use-case {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0;
+}
+.style-parameter-summary {
+  margin: 0;
+  font-size: 0.82rem;
+}
+.style-parameter-summary > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.style-parameter-summary dt {
+  color: var(--muted);
+}
+.style-parameter-summary dd {
+  margin: 0;
+  text-align: right;
+}
+.style-inspection-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.style-inspection-actions .button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.style-inspection-info details {
+  font-size: 0.85rem;
+}
+.style-custom-directions {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+.style-inspection.is-comparison {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 24px;
+}
+.style-inspection.is-comparison > article {
+  display: flex;
+  flex-direction: column;
+}
+.style-inspection.is-comparison .style-inspection-info {
+  flex: 1;
+}
+.style-inspection.is-comparison .style-inspection-info h3 {
+  font-size: 1.12rem;
+}
+.style-inspection.is-comparison .style-use-case {
+  min-height: 5em;
+  font-size: 0.83rem;
+}
+.style-inspection.is-comparison .style-inspection-actions {
+  flex-direction: column;
+}
+.style-comparison-tray {
+  position: sticky;
+  bottom: -24px;
+  margin: 24px -24px -24px;
+  padding: 14px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  z-index: 2;
+}
+.style-comparison-selection {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+.style-comparison-selection > button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 185px;
+  text-align: left;
+}
+.style-comparison-selection .story-style-sample {
+  width: 44px;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
+.style-comparison-selection span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.76rem;
+}
+.style-comparison-selection svg {
+  flex-shrink: 0;
+}
+.style-comparison-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.style-comparison-controls > span {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.studio-dialog > header h2:focus-visible {
+  outline-offset: 4px;
+}
+@media (max-width: 700px) {
+  .style-inspection.is-detail > article,
+  .style-inspection.is-comparison {
+    grid-template-columns: 1fr;
+  }
+  .style-inspection.is-comparison > article + article {
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+  }
+  .style-inspection.is-comparison .style-use-case {
+    min-height: 0;
+  }
+  .style-inspection-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .style-inspection-info h3 {
+    font-size: 1.3rem;
+  }
+  .style-inspection-image > small {
+    margin-bottom: 0;
+  }
+  .style-inspection.is-comparison .style-inspection-image > small {
+    margin-bottom: 18px;
+  }
+  .style-inspection-actions .button {
+    flex: 1;
+  }
+  .style-comparison-tray {
+    bottom: -18px;
+    margin: 20px -18px -18px;
+    padding: 12px 18px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .style-comparison-selection {
+    flex: 1;
+  }
+  .style-comparison-selection > button {
+    max-width: 60px;
+  }
+  .style-comparison-selection span {
+    display: none;
+  }
+  .style-comparison-selection .story-style-sample {
+    width: 32px;
+  }
+  .style-comparison-controls {
+    gap: 8px;
+  }
+  .style-comparison-controls > span {
+    display: none;
+  }
+  .style-pending {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .style-pending > div {
+    flex-basis: 100%;
+  }
+  .style-card-tools {
+    padding: 0;
+  }
+  .style-card-tools > .style-adjust-link {
+    font-size: 0.72rem;
+    padding-left: 2px;
+    gap: 4px;
+  }
+  .style-card-tools .icon-button {
+    width: 32px;
+    height: 40px;
+  }
+  .style-card-tools > .style-adjust-link > svg {
     display: none;
   }
 }

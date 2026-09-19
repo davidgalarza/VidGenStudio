@@ -19,6 +19,8 @@
 
 **Mis estilos** usa además IndexedDB `vidgen-style-library`, almacén `styles`: conserva los perfiles y los Blobs originales de imágenes o vídeos cuando guardas una entrada. El proyecto conserva una copia de la configuración, sin copiar esos archivos.
 
+Los favoritos de estilos se guardan en localStorage (`vidgen-style-favorites`) como identificadores de catálogo o entradas personales. Las comparaciones y los ajustes todavía sin aplicar son temporales. Cerrar el modal conserva el ajuste en memoria para retomarlo, también al alternar Escenas y Voz y estilo; recargar o salir de la vista lo elimina. Cancelar descarta ese pendiente. Guardar en Mis estilos persiste una copia y sus medios, mientras que Usar aplica la configuración al guion con su flujo de guardado habitual.
+
 No hay cuentas ni sincronización entre dispositivos. IndexedDB y localStorage están separados por origen: protocolo, dominio y puerto. Un despliegue de prueba con otra URL no verá los datos del despliegue principal.
 
 El navegador puede restringir o desalojar almacenamiento, especialmente en modo privado o si falta espacio. La aplicación no ofrece una copia completa reimportable del proyecto. Descarga los medios importantes; `clips.json` ayuda a conservar metadatos, pero no restaura una sesión ni el montaje.

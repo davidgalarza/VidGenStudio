@@ -68,6 +68,8 @@ Las pruebas crean datos sintéticos en contextos aislados e interceptan las soli
 
 `tests/storyStyles.test.ts` comprueba los catálogos por modo, parámetros, prioridad de instrucciones, conservación de cambios al alternar narración, copias de configuración independientes de la biblioteca, validación de archivos y cancelación del análisis. `e2e/styles.spec.ts` recorre selección explícita, personalización, análisis revisable, guardado y clonación con archivos, recarga, propagación a planificación/referencias/vídeo y errores sin perder ajustes. Las solicitudes se simulan: estas pruebas no verifican costes reales, coincidencia visual, precisión de diagramas ni disponibilidad de Gemini. Los cambios no requieren migrar la base de proyectos; la biblioteca de estilos usa una base local separada.
 
+`tests/styleBrowsing.test.ts` cubre búsqueda por técnica y uso sin tildes, términos en distinto orden, orden relevante por modo y favoritos con almacenamiento ausente o corrupto. Los escenarios de estilos en navegador cubren además detalle antes de aplicar, comparación de hasta tres opciones, favoritos y recuperación de una personalización pendiente después de cerrar el modal o alternar Escenas/Voz y estilo. Ese pendiente vive en memoria; no debe presentarse como guardado después de recargar. Los cinco atlas se sirven en WebP, conservando PNG y prompts como fuentes documentadas.
+
 Para ejecutar solo el área modificada:
 
 ```bash

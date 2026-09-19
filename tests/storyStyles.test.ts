@@ -43,9 +43,9 @@ const response = (profile: StoryStyleProfile) => ({
 
 describe("styles are mode-specific, configurable and snapshotted", () => {
   it("offers distinct complete catalogues and valid defaults for every style", () => {
-    expect(stylesForMode("voiceover")).toHaveLength(24);
-    expect(stylesForMode("spoken")).toHaveLength(20);
-    expect(new Set(storyStyles.map((s) => s.id)).size).toBe(34);
+    expect(stylesForMode("voiceover")).toHaveLength(36);
+    expect(stylesForMode("spoken")).toHaveLength(32);
+    expect(new Set(storyStyles.map((s) => s.id)).size).toBe(58);
     expect(stylesForMode("spoken").some((s) => s.id === "slides")).toBe(false);
     expect(stylesForMode("voiceover").some((s) => s.id === "puppet")).toBe(
       false,

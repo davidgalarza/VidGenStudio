@@ -78,7 +78,31 @@ export type StoryStyle =
   | "puppet"
   | "storybook"
   | "rotoscope"
-  | "lowpoly";
+  | "lowpoly"
+  | "maps"
+  | "dataviz"
+  | "topdown"
+  | "productviz"
+  | "interface"
+  | "microscopic"
+  | "space"
+  | "architecture"
+  | "timelapse"
+  | "silhouette"
+  | "chalkboard"
+  | "origami"
+  | "sitcom"
+  | "stage"
+  | "interview"
+  | "fantasy"
+  | "scifi"
+  | "rubberhose"
+  | "pencil"
+  | "inkwash"
+  | "wooden"
+  | "cel3d"
+  | "lineless"
+  | "oilpaint";
 export interface StyleParameters {
   pace: "calm" | "balanced" | "dynamic";
   camera: "locked" | "gentle" | "tracking" | "handheld";

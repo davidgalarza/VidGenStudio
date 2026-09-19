@@ -242,13 +242,16 @@ test("free dialogue becomes editable shared scenes, reusable sets and individual
   const gallery = page.getByRole("dialog", {
     name: "Elige el estilo de tu historia",
   });
-  await expect(gallery.locator(".story-style-option")).toHaveCount(20);
+  await expect(gallery.locator(".story-style-option")).toHaveCount(32);
   await capture(page, "dialogue-styles");
   await gallery
     .getByRole("button", {
       name: "Acuarela Pigmentos y bordes suaves",
       exact: true,
     })
+    .click();
+  await page
+    .getByRole("button", { name: "Usar Acuarela", exact: true })
     .click();
   await expect(page.locator(".story-style-trigger")).toBeFocused();
   await page
@@ -497,6 +500,7 @@ test("a pasted monologue needs no character setup and style selection is keyboar
   });
   await anime.focus();
   await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "Usar Anime", exact: true }).click();
   await expect(page.locator(".story-style-trigger")).toBeFocused();
   await expect(page.locator(".story-style-trigger")).toContainText("Anime");
   await page

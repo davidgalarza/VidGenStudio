@@ -11,9 +11,10 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 
 ### Añadido
 
+- Ampliación de la biblioteca con 24 estilos (doce por modo): ahora 58 distintos, 36 para voz en off y 32 para personajes hablando. Detalles con guía de uso, comparación de hasta tres estilos incluidos los personales, favoritos locales y búsqueda por técnica o uso sin tildes.
 - Conversaciones con varios personajes dentro de una escena: intervenciones editables, interpretación, acciones, oyentes y tomas automáticas, compartidas o alternadas. La entrada sigue siendo texto libre.
 - Escenarios vacíos generados con Nano Banana como referencias reutilizables.
-- Biblioteca visual de 34 estilos distintos: 24 para voz en off y 20 para personajes hablando, con búsqueda, filtros y seis controles por modo. Conserva los estilos anteriores y añade 22 opciones.
+- Biblioteca visual inicial de 34 estilos distintos: 24 para voz en off y 20 para personajes hablando, con búsqueda, filtros y seis controles por modo. Conservó los estilos anteriores y añadió 22 opciones antes de la ampliación descrita arriba.
 - Estilos personales: crear, personalizar, guardar, clonar, editar y eliminar, con copias independientes en cada proyecto y referencias guardadas en una biblioteca local.
 - Análisis explícito de hasta seis imágenes o vídeos con Gemini, propuesta revisable y aplicación manual; no adjunta automáticamente los archivos a las generaciones. Tres atlas ilustrativos con procedencia documentada.
 - Revisión opcional del diálogo con Gemini: transcripción, comparación de palabras y hablantes y observaciones, sin regeneraciones automáticas.
@@ -35,6 +36,7 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 
 ### Cambiado
 
+- Abrir una muestra permite explorarla sin cambiar la selección; solo Usar aplica el estilo. La navegación restaura foco y desplazamiento. Cinco atlas WebP reducen el total de muestras de unos 15,7 MB a unos 2,4 MB; se conservan los PNG originales y los prompts.
 - Historia comienza con modo y estilo explícitos, inicialmente voz en off y Realista. Los ajustes personalizados se conservan al cambiar de modo; los parámetros y la dirección personalizada tienen prioridad visual sobre la base. Los ajustes se propagan al plan, Nano Banana y los vídeos.
 - Producción de Historia agrupada por escena narrativa, con correcciones por toma, versiones anteriores conservadas y actualización de referencias automáticas al cambiar de hablante.
 - Historia empieza por el guion: Gemini completa una propuesta editable de escenas, reparto, voces y referencias de Nano Banana antes de producir.
@@ -48,6 +50,7 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 
 ### Corregido
 
+- Los ajustes de estilo pendientes se pueden retomar después de cerrar el modal o alternar Escenas y Voz y estilo. Cancelar los descarta y Usar los aplica; el aviso aclara que recargar o salir de la vista pierde ese borrador en memoria.
 - Los nombres de personaje en una línea separada se vinculan a sus palabras cuando Gemini los divide en intervenciones o escenas vacías. Se conserva el guion y el hablante al cruzar escenas y lotes, sin pedir otro plan por ese motivo.
 - Validación de hablantes y rangos del guion, continuidad del personaje entre lotes y foco en la intervención concreta que necesita texto. Las etiquetas con negritas o guiones se pueden renombrar sin alterar las palabras pronunciadas.
 - Reconocimiento de nombres de personaje en Historia y selectores sin asignaciones engañosas. Los errores identifican escenas concretas y permiten corregir nombres en grupo.
