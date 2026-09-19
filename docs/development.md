@@ -70,6 +70,8 @@ Las pruebas crean datos sintéticos en contextos aislados e interceptan las soli
 
 `tests/styleBrowsing.test.ts` cubre búsqueda por técnica y uso sin tildes, términos en distinto orden, orden relevante por modo y favoritos con almacenamiento ausente o corrupto. Los escenarios de estilos en navegador cubren además detalle antes de aplicar, comparación de hasta tres opciones, favoritos y recuperación de una personalización pendiente después de cerrar el modal o alternar Escenas/Voz y estilo. Ese pendiente vive en memoria; no debe presentarse como guardado después de recargar. Los cinco atlas se sirven en WebP, conservando PNG y prompts como fuentes documentadas.
 
+`tests/storyLocations.test.ts` comprueba la recuperación de escenarios omitidos, nombres equivalentes sin ambigüedad, reutilización entre lotes y conservación de imágenes y texto. `e2e/locations.spec.ts` retoma una propuesta guardada con el error de lugar ausente y la lleva a producción, con y sin generación automática de referencias, sin repetir la solicitud de planificación.
+
 Para ejecutar solo el área modificada:
 
 ```bash

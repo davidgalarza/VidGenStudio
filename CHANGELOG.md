@@ -50,6 +50,8 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 
 ### Corregido
 
+- La propuesta ya no se detiene si Gemini nombra un lugar sin crear su referencia: vincula nombres equivalentes o prepara una ficha editable del escenario a partir de la descripción visual. Reutiliza referencias e imágenes entre lotes, conserva el guion y respeta la opción de generar imágenes.
+
 - Los ajustes de estilo pendientes se pueden retomar después de cerrar el modal o alternar Escenas y Voz y estilo. Cancelar los descarta y Usar los aplica; el aviso aclara que recargar o salir de la vista pierde ese borrador en memoria.
 - Los nombres de personaje en una línea separada se vinculan a sus palabras cuando Gemini los divide en intervenciones o escenas vacías. Se conserva el guion y el hablante al cruzar escenas y lotes, sin pedir otro plan por ese motivo.
 - Validación de hablantes y rangos del guion, continuidad del personaje entre lotes y foco en la intervención concreta que necesita texto. Las etiquetas con negritas o guiones se pueden renombrar sin alterar las palabras pronunciadas.
