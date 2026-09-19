@@ -51,6 +51,14 @@ import { useBlobUrl } from "../lib/useBlobUrl";
 import { createZip } from "../lib/archive";
 import { downloadBlob } from "../lib/media";
 import { Clip } from "./common";
+import { StoryCastReview } from "./StoryCastReview";
+import {
+  normalizeStoryCast,
+  assignStorySpeaker,
+  blockSpeaker,
+  storyCastIssues,
+  castIssueMessage,
+} from "../lib/storyCast";
 import { ReferencePicker } from "./ReferencePicker";
 import "./story.css";
 function NarrationAudition({
@@ -528,34 +536,53 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
     cached && cached.revision !== original.revision ? cached : undefined,
   );
   const [draft, setDraft] = useState<Story>(
-    cached && cached.revision === original.revision ? cached : original,
+    normalizeStoryCast(
+      cached && cached.revision === original.revision ? cached : original,
+    ),
   );
   function recoverDraft() {
     if (!conflict) return;
     const exists = (id?: string) => !!id && w.assets.some((a) => a.id === id);
-    setDraft({
-      ...conflict,
-      phase: original.phase,
-      revision: original.revision,
-      error: original.error,
-      references: conflict.references?.map((r) => ({
-        ...r,
-        assetId: exists(r.assetId) ? r.assetId : undefined,
-      })),
-      characters: conflict.characters.map((c) => ({
-        ...c,
-        referenceId: exists(c.referenceId) ? c.referenceId : undefined,
-      })),
-      blocks: conflict.blocks.map((b) => ({
-        ...b,
-        referenceIds: b.referenceIds?.filter(exists),
-      })),
-    });
+    setDraft(
+      normalizeStoryCast({
+        ...conflict,
+        phase: original.phase,
+        revision: original.revision,
+        error: original.error,
+        references: conflict.references?.map((r) => ({
+          ...r,
+          assetId: exists(r.assetId) ? r.assetId : undefined,
+        })),
+        characters: conflict.characters.map((c) => ({
+          ...c,
+          referenceId: exists(c.referenceId) ? c.referenceId : undefined,
+        })),
+        blocks: conflict.blocks.map((b) => ({
+          ...b,
+          referenceIds: b.referenceIds?.filter(exists),
+        })),
+      }),
+    );
     setConflict(undefined);
   }
   const [tab, setTab] = useState<"scenes" | "references" | "direction">(
     "scenes",
   );
+  const [onlyIssues, setOnlyIssues] = useState(false);
+  const sceneNodes = useRef(new Map<string, HTMLElement>());
+  const castIssues = storyCastIssues(draft);
+  const issueIds = new Set(castIssues.map((issue) => issue.blockId));
+  function locateScene(id: string, pendingOnly = false) {
+    setTab("scenes");
+    setOnlyIssues(pendingOnly);
+    requestAnimationFrame(() => {
+      const node = sceneNodes.current.get(id);
+      node?.scrollIntoView({ block: "center" });
+      node
+        ?.querySelector<HTMLSelectElement>("select")
+        ?.focus({ preventScroll: true });
+    });
+  }
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [picker, setPicker] = useState<{
@@ -566,8 +593,10 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
   const dirty =
     JSON.stringify({ ...draft, error: undefined }) !==
     JSON.stringify({ ...original, error: undefined });
-  const update = (patch: Partial<Story>) =>
+  const update = (patch: Partial<Story>) => {
+    setError("");
     setDraft((d) => ({ ...d, ...patch }));
+  };
   useEffect(() => {
     if (conflict) return;
     try {
@@ -592,6 +621,11 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
         throw new Error(
           "Añade al menos un personaje para el diálogo, o elige voz en off.",
         );
+      if (castIssues.length) {
+        setError(castIssueMessage(castIssues[0]));
+        locateScene(castIssues[0].blockId, true);
+        return;
+      }
       await db.saveStoryDraft(project.id, draft);
       sessionStorage.removeItem(cacheKey);
       await w.refresh();
@@ -675,7 +709,10 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
             {draft.blocks.length === 1
               ? "escena propuesta"
               : "escenas propuestas"}
-            . Revisa lo que quieras; puedes producirla tal como está.
+            .{" "}
+            {castIssues.length
+              ? "Revisa los personajes pendientes antes de producir."
+              : "Revisa lo que quieras; puedes producirla tal como está."}
           </p>
         </div>
         <button
@@ -745,10 +782,42 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
           {error}
         </p>
       )}
+      <StoryCastReview
+        story={draft}
+        disabled={busy}
+        onlyIssues={onlyIssues}
+        onChange={(next) => update(next)}
+        onLocate={locateScene}
+        onCast={() => setTab("references")}
+        onFilter={() => {
+          setTab("scenes");
+          setOnlyIssues(!onlyIssues);
+        }}
+      />
       <fieldset disabled={busy} className="story-review-fields">
         {tab === "scenes" && (
           <div className="story-planned-scenes">
+            {onlyIssues && (
+              <div className="story-issue-filter">
+                <span>
+                  {issueIds.size
+                    ? `Mostrando ${issueIds.size} de ${draft.blocks.length} escenas`
+                    : "Todos los personajes están resueltos."}
+                </span>
+                <button
+                  className="text-button"
+                  onClick={() => setOnlyIssues(false)}
+                >
+                  Mostrar todas las escenas
+                </button>
+              </div>
+            )}
             {draft.blocks.map((block, i) => {
+              if (onlyIssues && !issueIds.has(block.id)) return null;
+              const selectedSpeaker = blockSpeaker(draft, block);
+              const blockIssue = castIssues.find(
+                (issue) => issue.blockId === block.id,
+              );
               const ids =
                 block.referenceIds ??
                 storyReferenceIds(draft, block.speaker, block.referenceNames);
@@ -757,7 +826,11 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
               );
               return (
                 <article
-                  className="story-planned-scene"
+                  className={`story-planned-scene ${blockIssue ? "needs-character" : ""}`}
+                  ref={(node) => {
+                    if (node) sceneNodes.current.set(block.id, node);
+                    else sceneNodes.current.delete(block.id);
+                  }}
                   key={block.id}
                   aria-label={`Escena propuesta ${i + 1}`}
                 >
@@ -767,7 +840,7 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                       <button
                         className="icon-button"
                         aria-label={`Subir escena ${i + 1}`}
-                        disabled={busy || i === 0}
+                        disabled={busy || onlyIssues || i === 0}
                         onClick={() => move(i, -1)}
                       >
                         <ChevronUp size={15} />
@@ -775,7 +848,9 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                       <button
                         className="icon-button"
                         aria-label={`Bajar escena ${i + 1}`}
-                        disabled={busy || i === draft.blocks.length - 1}
+                        disabled={
+                          busy || onlyIssues || i === draft.blocks.length - 1
+                        }
                         onClick={() => move(i, 1)}
                       >
                         <ChevronDown size={15} />
@@ -821,24 +896,46 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                           Habla
                           <select
                             aria-label={`Personaje de la escena ${i + 1}`}
-                            value={
-                              block.speaker || draft.characters[0]?.name || ""
+                            value={selectedSpeaker?.name || ""}
+                            aria-invalid={!!blockIssue}
+                            aria-describedby={
+                              blockIssue
+                                ? `story-cast-error-${block.id}`
+                                : undefined
                             }
                             onChange={(e) =>
-                              blockPatch(block.id, {
-                                speaker: e.target.value,
-                                text: renameSpeakerLabel(
-                                  block.text,
-                                  block.speaker ||
-                                    draft.characters[0]?.name ||
-                                    "",
+                              update(
+                                assignStorySpeaker(
+                                  draft,
+                                  [
+                                    ...castIssues.filter(
+                                      (issue) => issue.blockId === block.id,
+                                    ),
+                                    {
+                                      blockId: block.id,
+                                      index: i,
+                                      title: block.title || "",
+                                      name:
+                                        block.speaker ||
+                                        selectedSpeaker?.name ||
+                                        "",
+                                      source: "speaker",
+                                    },
+                                  ],
                                   e.target.value,
                                 ),
-                              })
+                              )
                             }
                           >
-                            {draft.characters.map((c) => (
-                              <option key={c.name}>{c.name}</option>
+                            <option value="" disabled>
+                              {block.speaker?.trim()
+                                ? `Sin asignar · ${block.speaker}`
+                                : "Elegir quién habla…"}
+                            </option>
+                            {draft.characters.map((c, index) => (
+                              <option key={index} value={c.name}>
+                                {c.name}
+                              </option>
                             ))}
                           </select>
                         </label>
@@ -896,6 +993,14 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                         <Trash2 size={14} />
                       </button>
                     </div>
+                    {blockIssue && (
+                      <p
+                        id={`story-cast-error-${block.id}`}
+                        className="inline-error story-cast-inline-error"
+                      >
+                        {castIssueMessage(blockIssue)}
+                      </p>
+                    )}
                   </div>
                 </article>
               );
@@ -987,11 +1092,8 @@ function ProposalEditor({ project, workspace: w }: StoryProps) {
                           characters: draft.characters.filter(
                             (_, n) => n !== i,
                           ),
-                          blocks: draft.blocks.map((b) =>
-                            b.speaker === c.name
-                              ? { ...b, speaker: undefined }
-                              : b,
-                          ),
+                          // Keep the old assignment visible so it can be repaired, never silently replace it.
+                          blocks: draft.blocks,
                           references: draft.references?.map((r) =>
                             r.characterName === c.name
                               ? { ...r, characterName: undefined }

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { DEFAULT_VIDEO } from "../src/types";
 import type { Project, Scene, Narration } from "../src/types";
 const video = readFileSync(
   new URL("./fixtures/silent.mp4", import.meta.url),
@@ -767,4 +768,132 @@ test("migrates version-one projects and media without creating a default clip", 
   expect(data.scenes).toHaveLength(1);
   expect(data.scenes[0].id).toBe("legacy-scene");
   expect(data.narrations).toHaveLength(0);
+});
+
+test("a long story identifies hidden speaker mismatches and repairs the affected scenes together", async ({
+  page,
+}) => {
+  const calls = await providers(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await init(page);
+  await page.evaluate(async (settings) => {
+    const database = await new Promise<IDBDatabase>((resolve) => {
+      const r = indexedDB.open("vid-gen-studio");
+      r.onsuccess = () => resolve(r.result);
+    });
+    const tx = database.transaction("projects", "readwrite");
+    const request = tx.objectStore("projects").getAll();
+    request.onsuccess = () => {
+      const project = request.result[0];
+      project.story = {
+        id: "speaker-story",
+        revision: 0,
+        phase: "review",
+        mode: "spoken",
+        style: "explainer",
+        direction: "Explicación visual",
+        script: "El guion original se conserva.",
+        voiceId: "Kore",
+        voiceName: "Kore",
+        settings,
+        characters: [
+          { name: "Ana", description: "Camisa verde", voice: "Cálida" },
+          { name: "Luis", description: "Camisa azul", voice: "Grave" },
+        ],
+        references: [],
+        blocks: Array.from({ length: 40 }, (_, i) => ({
+          id: `beat-${i}`,
+          title: `Momento ${i + 1}`,
+          text: "La luz permite que las plantas crezcan.",
+          visual: "Una planta recibe luz",
+          speaker: [4, 20, 38].includes(i) ? "Narrador" : " ANA ",
+        })),
+      };
+      tx.objectStore("projects").put(project);
+    };
+    await new Promise<void>((resolve) => {
+      tx.oncomplete = () => resolve();
+    });
+    database.close();
+  }, DEFAULT_VIDEO);
+  await page.reload();
+  await page.getByRole("button", { name: "Historia", exact: true }).click();
+  const review = page.getByRole("region", { name: "Personajes por revisar" });
+  await expect(review).toContainText(
+    "3 escenas necesitan revisar su personaje",
+  );
+  await expect(
+    page.getByLabel("Personaje de la escena 1", { exact: true }),
+  ).toHaveValue("Ana");
+  await expect(
+    page.getByLabel("Personaje de la escena 5", { exact: true }),
+  ).toHaveValue("");
+  await expect(
+    page.getByLabel("Personaje de la escena 5", { exact: true }),
+  ).toHaveAttribute("aria-invalid", "true");
+  await page.getByRole("button", { name: "Voz y estilo", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Producir historia", exact: true })
+    .first()
+    .click();
+  await expect(page.locator(".story-planned-scene")).toHaveCount(3);
+  await expect(page.locator(".story-proposal > .inline-error")).toContainText(
+    "Escena 5 · Momento 5",
+  );
+  expect(calls.video).toBe(0);
+  expect(calls.speech).toBe(0);
+  await review
+    .getByRole("button", { name: "Ver escena 39", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Personaje de la escena 39", { exact: true }),
+  ).toBeFocused();
+  await expect(page.locator(".story-planned-scene")).toHaveCount(40);
+  await review
+    .getByRole("button", { name: "Ver solo las pendientes", exact: true })
+    .click();
+  if (process.env.CAST_CAPTURE) {
+    await page.screenshot({
+      path: "artifacts/story-cast-desktop.png",
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({
+      path: "artifacts/story-cast-mobile.png",
+      fullPage: true,
+    });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.setViewportSize({ width: 1440, height: 1000 });
+  }
+  await review
+    .getByLabel("Personaje para Narrador", { exact: true })
+    .selectOption("Ana");
+  await review
+    .getByRole("button", { name: "Asignar a las 3 escenas", exact: true })
+    .click();
+  await expect(review).toHaveCount(0);
+  await expect(
+    page.getByText("Todos los personajes están resueltos.", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Mostrar todas las escenas", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Personaje de la escena 39", { exact: true }),
+  ).toHaveValue("Ana");
+  await page
+    .getByRole("button", { name: "Guardar cambios", exact: true })
+    .click();
+  const data = await stored(page);
+  expect(data.projects[0].story!.blocks.every((b) => b.speaker === "Ana")).toBe(
+    true,
+  );
+  expect(data.projects[0].story!.script).toBe("El guion original se conserva.");
+  expect(data.scenes).toHaveLength(0);
+  expect(calls.plans).toBe(0);
+  expect(calls.video).toBe(0);
 });

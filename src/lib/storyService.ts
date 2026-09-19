@@ -1,3 +1,8 @@
+import {
+  normalizeStoryCast,
+  storyCastIssues,
+  castIssueMessage,
+} from "./storyCast";
 import * as db from "./storage";
 import { getApiKey } from "./settings";
 import {
@@ -70,6 +75,11 @@ export async function prepareStory(
   }
   if (story.phase === "planning")
     throw new Error("Termina de preparar la propuesta antes de producir.");
+  story = normalizeStoryCast(story);
+  const castIssue = storyCastIssues(story).find(
+    (i) => !story.blocks.find((b) => b.id === i.blockId)?.sceneIds,
+  );
+  if (castIssue) throw new Error(castIssueMessage(castIssue));
   if (story.phase === "review" || !story.phase)
     story = await db.saveStoryState(projectId, {
       ...story,

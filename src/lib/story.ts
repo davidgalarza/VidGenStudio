@@ -1,3 +1,4 @@
+import { cleanCharacterName, findStoryCharacter } from "./storyCast";
 import {
   OMNI_MODEL,
   type Story,
@@ -107,7 +108,8 @@ export function renameSpeakerLabel(text: string, from: string, to: string) {
   return text.replace(
     /(^|\n)([ \t]*)([^:\n]+)(:[ \t]*)/g,
     (whole, line, space, name, colon) =>
-      name.trim().toLocaleLowerCase() === from.trim().toLocaleLowerCase()
+      cleanCharacterName(name).toLocaleLowerCase() ===
+      cleanCharacterName(from).toLocaleLowerCase()
         ? `${line}${space}${to}${colon}`
         : whole,
   );
@@ -117,7 +119,7 @@ export function makeStory(config: StoryConfig): Story {
     throw new Error("Escribe el guion de tu historia.");
   if (config.mode === "voiceover" && !config.voiceId.trim())
     throw new Error("Elige una voz de Gemini TTS.");
-  const names = config.characters.map((c) => c.name.trim());
+  const names = config.characters.map((c) => cleanCharacterName(c.name));
   if (
     config.mode === "spoken" &&
     (!names.length ||
@@ -147,13 +149,9 @@ export function makeStory(config: StoryConfig): Story {
     for (const line of config.script.trim().split(/\n+/)) {
       const match = line.match(/^\s*([^:\n]{1,60}):\s*(.*)$/u);
       const matchedName =
-        match &&
-        names.find(
-          (name) =>
-            name.toLocaleLowerCase() === match[1].trim().toLocaleLowerCase(),
-        );
+        match && findStoryCharacter(config.characters, match[1])?.name;
       if (match && matchedName) {
-        speaker = matchedName;
+        speaker = cleanCharacterName(matchedName);
         add(match[2], speaker);
       } else {
         if (match && names.length > 1)
@@ -168,7 +166,10 @@ export function makeStory(config: StoryConfig): Story {
     throw new Error("El guion no contiene texto para narrar.");
   return {
     ...config,
-    characters: config.characters.map((c) => ({ ...c, name: c.name.trim() })),
+    characters: config.characters.map((c) => ({
+      ...c,
+      name: cleanCharacterName(c.name),
+    })),
     voiceId: config.voiceId.trim(),
     script: config.script.trim(),
     id: crypto.randomUUID(),

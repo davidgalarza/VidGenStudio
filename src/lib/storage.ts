@@ -1,3 +1,8 @@
+import {
+  normalizeStoryCast,
+  storyCastIssues,
+  castIssueMessage,
+} from "./storyCast";
 import { openDB, type DBSchema } from "idb";
 import { makeSequenceItem } from "./timeline";
 import { makeStory, storyReferenceIds } from "./story";
@@ -763,6 +768,7 @@ export async function saveStoryState(
   return next;
 }
 export async function saveStoryDraft(projectId: string, story: Story) {
+  story = normalizeStoryCast(story);
   if (story.phase !== "review" || story.blocks.some((b) => b.sceneIds))
     throw new Error(
       "La producción ya comenzó. Edita cada clip desde sus controles.",
@@ -779,13 +785,17 @@ export async function saveStoryDraft(projectId: string, story: Story) {
       "Una escena contiene más de 3.000 caracteres. Divídela antes de producir para mantener una narración clara.",
     );
   if (story.mode === "spoken") {
-    for (const block of story.blocks) {
-      if (
-        block.speaker &&
-        !story.characters.some((c) => c.name === block.speaker)
-      )
-        throw new Error("Elige un personaje existente para cada escena.");
-      makeStory({ ...story, script: block.text });
+    const issue = storyCastIssues(story)[0];
+    if (issue) throw new Error(castIssueMessage(issue));
+    for (const [index, block] of story.blocks.entries()) {
+      try {
+        makeStory({ ...story, script: block.text });
+      } catch (e) {
+        throw new Error(
+          `Escena ${index + 1} · ${block.title || "Sin título"}: ${e instanceof Error ? e.message : "Revisa el personaje."}`,
+          { cause: e },
+        );
+      }
     }
   }
   if (story.references?.some((r) => !r.name.trim() || !r.prompt.trim()))

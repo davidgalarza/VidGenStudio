@@ -37,6 +37,8 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 
 ### Corregido
 
+- Reconocimiento de nombres de personaje en Historia y selectores sin asignaciones engañosas. Los errores identifican escenas concretas y permiten corregir nombres en grupo.
+
 - Tratamiento de fallos terminales de archivos de Google y reintento explícito.
 - Normalización de referencias y lectura de resultados con base64 o URI.
 - Exportación con fuentes silenciosas, recortes de una sola toma y formatos mezclados.

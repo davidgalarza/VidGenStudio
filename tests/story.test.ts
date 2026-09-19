@@ -1,3 +1,9 @@
+import {
+  normalizeStoryCast,
+  storyCastIssues,
+  findStoryCharacter,
+  assignStorySpeaker,
+} from "../src/lib/storyCast";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   alignNarration,
@@ -515,6 +521,98 @@ describe("editable Gemini proposals", () => {
       work.projects.find((p) => p.id === project.id)?.story?.references?.[0]
         .assetId,
     ).toBeUndefined();
+    await db.deleteProject(project.id);
+  });
+});
+
+describe("story cast identity and actionable validation", () => {
+  const cast = [
+    { name: "Ana María", description: "", voice: "" },
+    { name: "Luis", description: "", voice: "" },
+  ];
+  function proposed(speakers: string[]) {
+    const story = makeStory({
+      ...config,
+      characters: cast,
+      script: "Hola.",
+      mode: "spoken",
+    });
+    return {
+      ...story,
+      phase: "review" as const,
+      blocks: speakers.map((speaker, i) => ({
+        id: `block-${i}`,
+        title: `Momento ${i + 1}`,
+        speaker,
+        text: "Hola, hoy aprendemos juntos.",
+        visual: "Una planta",
+      })),
+    };
+  }
+  it("canonicalizes case, unicode and spaces, accepts a unique missing accent and preserves words", () => {
+    const story = proposed([" ANA   MARÍA ", "ana maria", "LUIS"]);
+    const normalized = normalizeStoryCast(story);
+    expect(normalized.blocks.map((b) => b.speaker)).toEqual([
+      "Ana María",
+      "Ana María",
+      "Luis",
+    ]);
+    expect(storyCastIssues(normalized)).toEqual([]);
+    expect(normalized.blocks.map((b) => b.text)).toEqual(
+      story.blocks.map((b) => b.text),
+    );
+    expect(
+      makeStory({ ...story, script: "ana maria: Hola.", mode: "spoken" })
+        .blocks[0].speaker,
+    ).toBe("Ana María");
+    expect(
+      findStoryCharacter(
+        [
+          { name: "José", description: "", voice: "" },
+          { name: "Jòsé", description: "", voice: "" },
+        ],
+        "Jose",
+      ),
+    ).toBeUndefined();
+  });
+  it("does not silently choose the first character for an unknown or unassigned speaker", () => {
+    const story = proposed(["Ana María", "Narrador", "", "Luisa"]);
+    const normalized = normalizeStoryCast(story);
+    expect(normalized.blocks[1].speaker).toBe("Narrador");
+    expect(storyCastIssues(normalized).map((i) => [i.index, i.name])).toEqual([
+      [1, "Narrador"],
+      [2, ""],
+      [3, "Luisa"],
+    ]);
+  });
+  it("repairs a name across all affected scenes while preserving other speakers and the original script", () => {
+    const story = proposed(["Narrador", "Luis", "Narrador"]);
+    story.blocks[0].text = "Narrador: Hola, Luis.";
+    const repaired = assignStorySpeaker(
+      story,
+      storyCastIssues(story),
+      "Ana María",
+    );
+    expect(repaired.blocks.map((b) => b.speaker)).toEqual([
+      "Ana María",
+      "Luis",
+      "Ana María",
+    ]);
+    expect(repaired.blocks[0].text).toBe("Ana María: Hola, Luis.");
+    expect(repaired.blocks[1]).toEqual(story.blocks[1]);
+    expect(repaired.script).toBe(story.script);
+    expect(storyCastIssues(repaired)).toEqual([]);
+  });
+  it("names the exact scene and unknown person on save, then persists canonical identities", async () => {
+    const project = await db.createProject("Reparto", [], DEFAULT_VIDEO);
+    const story = proposed(["ana maria", "Narrador"]);
+    await db.createStory(project.id, story);
+    await expect(db.saveStoryDraft(project.id, story)).rejects.toThrow(
+      "Escena 2 · Momento 2: «Narrador»",
+    );
+    const fixed = assignStorySpeaker(story, storyCastIssues(story), "Luis");
+    const saved = await db.saveStoryDraft(project.id, fixed);
+    expect(saved.blocks.map((b) => b.speaker)).toEqual(["Ana María", "Luis"]);
     await db.deleteProject(project.id);
   });
 });

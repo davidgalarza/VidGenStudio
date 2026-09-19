@@ -16,6 +16,12 @@ El guion y las indicaciones iniciales se conservan al salir a Ajustes o recargar
 
 El borrador de revisión sobrevive a una recarga en la misma pestaña; **Guardar cambios** lo guarda en el proyecto. Producir también lo guarda. El guion original permanece disponible en los materiales, aunque edites o reordenes el texto de las escenas.
 
+## Personajes por revisar
+
+Los nombres se reconocen aunque cambien las mayúsculas o los espacios; las variantes de acentos solo se vinculan cuando identifican un único personaje. Si una escena contiene un nombre desconocido, el selector lo muestra como **Sin asignar** en lugar de aparentar que ya tiene personaje.
+
+El aviso **Personajes por revisar** reúne las escenas afectadas por cada nombre. Puedes saltar a una escena por su número, ver solo las pendientes y asignar el mismo personaje a todo el grupo con una sola acción. Si intentas producir, el editor te lleva a las escenas que necesitan corrección e indica número, título y nombre. No se genera contenido para resolver estas asignaciones y el guion original se conserva.
+
 ## Dos formas de narrar
 
 - **Voz en off:** Gemini TTS lee el texto; los vídeos ilustran su significado. La misma voz y las mismas indicaciones se reutilizan en todas las escenas. Hay 30 voces seleccionables y dirección de tono, acento y ritmo mediante texto. El montaje silencia el sonido original del vídeo y añade la narración.
