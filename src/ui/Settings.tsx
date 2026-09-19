@@ -126,7 +126,7 @@ export function Settings({
           {getApiKey() && (
             <button
               className="text-button"
-              disabled={!!w.job}
+              disabled={w.jobs.length > 0}
               onClick={() => {
                 setApiKey("");
                 setKey("");
@@ -161,6 +161,31 @@ export function Settings({
           Gemini TTS, generar referencias con Nano Banana y producir los vídeos.
           El acceso y el consumo dependen de los modelos habilitados en tu
           cuenta.
+        </p>
+      </section>
+      <section className="settings-section">
+        <h2>Generación en paralelo</h2>
+        <p>
+          Produce varias escenas a la vez. Cada vídeo conserva su progreso y su
+          lugar en la historia.
+        </p>
+        <label>
+          Vídeos simultáneos
+          <select
+            value={w.parallelism}
+            onChange={(e) => w.setParallelism(Number(e.target.value))}
+          >
+            <option value={1}>1 · Uno a la vez</option>
+            <option value={2}>2 vídeos</option>
+            <option value={3}>3 vídeos · Recomendado</option>
+            <option value={4}>4 vídeos</option>
+          </select>
+        </label>
+        <p className="hint">
+          Se guarda automáticamente. Reducir este número deja terminar los
+          vídeos activos. Si Google indica un límite de cuota, la cola se pausa
+          y el estudio reduce el envío a uno a la vez. Los límites de tu cuenta
+          siguen aplicando.
         </p>
       </section>
       <section className="settings-section">

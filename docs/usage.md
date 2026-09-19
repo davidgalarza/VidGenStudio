@@ -54,9 +54,15 @@ Los resultados guardados con el flujo anterior siguen disponibles en **Resultado
 
 ## Cola, pausa y recuperación
 
-La cola procesa una solicitud cada vez y puedes añadir otras mientras trabaja. **Cancelar pendientes** retira las solicitudes que todavía no han empezado de ese clip. **Pausar seguimiento** detiene el seguimiento local y la cola, sin cancelar la operación que Google ya recibió. Mantén la pestaña abierta para que siga avanzando. Tras recargar, las solicitudes pendientes se conservan pausadas: usa **Recuperar resultado** si hay una operación interrumpida o **Continuar cola** para las que aún no se enviaron. Un error detiene la cola y conserva lo restante. **Reintentar clip** utiliza la solicitud guardada en esa misma tarjeta, incluyendo el vídeo base de una edición o extensión.
+La cola produce hasta **3 vídeos a la vez** por defecto, tanto clips independientes como escenas de Historia. En **Ajustes → Generación en paralelo → Vídeos simultáneos** puedes elegir de 1 a 4; se guarda automáticamente. Aumentarlo aprovecha los espacios disponibles; reducirlo deja terminar las solicitudes activas antes de enviar otras. Los clips mantienen su lugar en la historia aunque terminen en distinto orden. Las solicitudes antiguas agrupadas sobre una misma escena siguen ejecutándose una tras otra.
 
-La cola no añade pasos al generar. **Ver actividad** abre un panel opcional con el clip activo y los próximos. La flecha adelanta un clip al siguiente turno; puedes cancelar una solicitud o los pendientes de una tanda completa. Las prioridades y cancelaciones se conservan al recargar. La solicitud en curso permanece intacta. El panel también muestra resultados por recuperar.
+**Ver actividad** muestra cada vídeo activo con su propio estado y las solicitudes pendientes. La flecha adelanta un clip al próximo espacio disponible; puedes cancelar una solicitud o los pendientes de una tanda completa. Las prioridades y cancelaciones se conservan al recargar. Cancelar pendientes no interrumpe las solicitudes activas.
+
+**Pausar seguimiento** detiene el seguimiento local de todos los vídeos activos y la cola, sin cancelar las operaciones que Google ya recibió. Mantén la pestaña abierta para que siga avanzando. Tras recargar, lo pendiente se conserva pausado: usa **Recuperar resultado**, **Recuperar N resultados** desde Actividad, o **Continuar cola** para lo que aún no se envió. La recuperación consulta los identificadores guardados; no crea vídeos nuevos para esas operaciones.
+
+Un error pausa los nuevos envíos; los demás vídeos ya iniciados siguen hasta guardar sus resultados o su propio error. Si Google responde con **429 / límite de cuota**, el estudio también reduce el paralelismo a 1, conservando ese ajuste. Puedes continuar cuando la cuota lo permita. No se reintenta automáticamente la solicitud fallida. Los [límites de Google](https://ai.google.dev/gemini-api/docs/rate-limits) dependen del proyecto y la cuenta; aumentar el paralelismo no los amplía ni garantiza una aceleración concreta.
+
+**Reintentar clip** utiliza la solicitud guardada en esa misma tarjeta, incluyendo el vídeo base de una edición o extensión. Si varios vídeos terminan cuando ya no hay espacio para guardarlos, cada uno conserva su botón de descarga en el aviso: descárgalos antes de cerrar la pestaña.
 
 ## Referencias y generación
 

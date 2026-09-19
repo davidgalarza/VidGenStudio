@@ -11,6 +11,8 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 
 ### Añadido
 
+- Generación paralela de clips e historias: 3 solicitudes simultáneas por defecto, ajuste de 1 a 4, progreso por escena, recuperación múltiple y reducción automática a 1 tras un límite de cuota.
+
 - Revisión de descripciones con Gemini para generaciones bloqueadas por contenido: propuesta visible, alternativas señaladas, aplicación manual y reintento con el texto actualizado, sin regenerar la narración ni modificar referencias.
 - Modo Historia: guiones completos, personajes hablados o Gemini TTS, estilos visuales, plan editable con Gemini y regeneración por escena.
 - Narración persistida con tiempos reales, recortes vinculados, reproducción y exportación con voz, recuperación de preparación y descarga de materiales.

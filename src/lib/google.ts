@@ -61,6 +61,8 @@ function providerMessage(message: string, apiKey = "") {
   return detail;
 }
 export class TerminalGenerationError extends Error {}
+// A polling quota error must retain the remote ID for later recovery.
+export class GoogleRateLimitError extends Error {}
 class OutputFileError extends TerminalGenerationError {}
 export function errorMessage(error: unknown): string {
   if (error instanceof DOMException && error.name === "AbortError")
@@ -99,7 +101,7 @@ async function request<T>(
       500: "Google devolvió un error temporal.",
       503: "El modelo está ocupado. Inténtalo más tarde.",
     };
-    throw new Error(
+    throw new (response.status === 429 ? GoogleRateLimitError : Error)(
       `${hints[response.status] || `Google respondió con un error (${response.status}).`}${detail ? ` ${detail}` : ""}`,
     );
   }

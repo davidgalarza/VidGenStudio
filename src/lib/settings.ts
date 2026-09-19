@@ -1,5 +1,22 @@
 import { DEFAULT_VIDEO, type VideoSettings } from "../types";
 const KEY = "vid_gen_api_key";
+const PARALLELISM_KEY = "vidgen_parallelism";
+export const DEFAULT_PARALLELISM = 3;
+export function getParallelism(): number {
+  try {
+    const value = Number(localStorage.getItem(PARALLELISM_KEY));
+    return Number.isInteger(value) && value >= 1 && value <= 4
+      ? value
+      : DEFAULT_PARALLELISM;
+  } catch {
+    return DEFAULT_PARALLELISM;
+  }
+}
+export function saveParallelism(value: number): void {
+  if (!Number.isInteger(value) || value < 1 || value > 4)
+    throw new Error("Elige entre 1 y 4 vídeos simultáneos.");
+  localStorage.setItem(PARALLELISM_KEY, String(value));
+}
 export function getApiKey(): string {
   try {
     return localStorage.getItem(KEY) || "";

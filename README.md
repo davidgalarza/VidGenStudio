@@ -13,7 +13,7 @@ Este proyecto es un fork independiente de [Video Orchestrator, de Rajjit Laishra
 - **Modo Historia:** pega un guion y Gemini propone escenas, personajes, voces y referencias con Nano Banana. Revisa el plan y produce vídeos con diálogo o voz en off de Gemini TTS, usando una sola clave de Google. [Cómo funciona](docs/story.md).
 - **Proyectos vacíos:** crea clips cuando los necesites, sin plantillas ni tomas automáticas.
 - **Generación con Google:** integración con Gemini Omni 1.1 Flash y Veo 3.1, referencias visuales y generación de imágenes de referencia.
-- **Cola persistente:** solicita de 1 a 20 clips independientes, sigue preparando otros y recupera operaciones tras recargar.
+- **Cola paralela persistente:** hasta 3 vídeos a la vez por defecto (ajustable de 1 a 4), tandas de 1 a 20 clips independientes y recuperación múltiple tras recargar.
 - **Biblioteca de clips:** búsqueda, filtros, favoritos, descartados, papelera, comparación y reutilización de ajustes.
 - **Edición y extensión con Omni:** crea clips derivados y conserva el original.
 - **Editor de secuencia:** arrastra, ordena, recorta ambos extremos, divide, duplica, ajusta audio, deshaz y previsualiza el resultado.

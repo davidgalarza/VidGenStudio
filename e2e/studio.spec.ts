@@ -7,6 +7,14 @@ const silent = readFileSync(
   new URL("./fixtures/silent.mp4", import.meta.url),
 ).toString("base64");
 const google = "**/generativelanguage.googleapis.com/**";
+// Keep the existing serial-mode regression scenarios. Parallel scheduling has
+// its own suite with default settings and held requests to assert overlap.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("vidgen_parallelism"))
+      localStorage.setItem("vidgen_parallelism", "1");
+  });
+});
 async function createProject(page: Page, sceneCount = 1) {
   await page
     .locator(".home-page")

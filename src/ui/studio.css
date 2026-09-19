@@ -1305,12 +1305,25 @@ button {
   background: #4a3423;
   color: #f7e1c7;
   display: flex;
+  flex-wrap: wrap;
   gap: 20px;
   align-items: center;
   padding: 18px;
   border-radius: 10px;
   max-width: 90vw;
+  width: min(820px, calc(100vw - 32px));
+  max-height: 45dvh;
+  overflow-y: auto;
   font-size: 0.86rem;
+}
+.recovery-banner > span {
+  flex-basis: 100%;
+}
+.recovery-banner .button {
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+  overflow-wrap: anywhere;
 }
 .loading-layout {
   padding: 50px;

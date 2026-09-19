@@ -203,7 +203,7 @@ export function StudioApp() {
               <IconButton
                 label="Eliminar proyecto"
                 disabled={
-                  !!w.job ||
+                  !!w.jobs.length ||
                   w.queue.length > 0 ||
                   w.storyJob?.projectId === project.id
                 }
@@ -310,24 +310,26 @@ export function StudioApp() {
             </button>
           </div>
         )}
-        {(w.job || w.queue.length > 0) && (
+        {(w.jobs.length > 0 || w.queue.length > 0) && (
           <div className="job-bar" role="status">
             <span className="activity-dot" />
             <span>
               <strong>
-                {w.job
-                  ? `${w.scenes.find((s) => s.id === (w.job?.sceneId || w.queue[0]?.sceneId))?.title || "Clip"} · ${w.job.text}`
-                  : "Cola pausada"}
+                {w.jobs.length > 1
+                  ? `${w.jobs.length} vídeos en curso${w.queuePaused ? " · Cola pausada" : ""}`
+                  : w.jobs.length === 1
+                    ? `${w.scenes.find((s) => s.id === w.jobs[0].sceneId)?.title || "Clip"} · ${w.jobs[0].text}`
+                    : "Cola pausada"}
               </strong>
               <small>
-                {w.job ? `Clip ${w.job.index} de ${w.job.total} · ` : ""}
-                {w.queue.length} en espera · Mantén esta pestaña abierta
+                {w.queue.length} en espera · Hasta {w.parallelism} a la vez ·
+                Mantén esta pestaña abierta
               </small>
             </span>
             <button className="text-button" onClick={() => setActivity(true)}>
               Ver actividad
             </button>
-            {!w.job && w.queue.length > 0 ? (
+            {!w.jobs.length && w.queue.length > 0 ? (
               <button className="text-button" onClick={w.continueQueue}>
                 Continuar cola
               </button>
@@ -358,20 +360,28 @@ export function StudioApp() {
           <Dismiss onClick={() => w.setNotice(null)} />
         </div>
       )}
-      {w.recovery && (
+      {!!w.recoveries.length && (
         <div className="recovery-banner" role="alert">
           <span>
-            Tu vídeo está listo, pero no se pudo guardar en el navegador.
+            {w.recoveries.length === 1
+              ? "Hay un vídeo listo que no se pudo guardar."
+              : `Hay ${w.recoveries.length} vídeos listos que no se pudieron guardar.`}{" "}
+            Descárgalos antes de cerrar esta pestaña.
           </span>
-          <button
-            className="button primary"
-            onClick={() =>
-              downloadBlob(w.recovery!.blob, "video-recuperado.mp4")
-            }
-          >
-            <Download size={16} />
-            Descargar ahora
-          </button>
+          {w.recoveries.map(({ sceneId, version }, index) => (
+            <button
+              key={version.id}
+              className="button primary"
+              onClick={() =>
+                downloadBlob(version.blob, `video-recuperado-${index + 1}.mp4`)
+              }
+            >
+              <Download size={16} />
+              Descargar{" "}
+              {w.scenes.find((s) => s.id === sceneId)?.title ||
+                `vídeo ${index + 1}`}
+            </button>
+          ))}
         </div>
       )}
     </div>

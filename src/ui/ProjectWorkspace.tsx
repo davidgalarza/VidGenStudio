@@ -111,7 +111,7 @@ export function ProjectWorkspace({
       s.prompt.trim() &&
       !s.task?.remoteId &&
       !w.queue.some((q) => q.sceneId === s.id) &&
-      w.job?.sceneId !== s.id,
+      !w.jobFor(s.id),
   );
   const openClip = (
     id: string,
@@ -518,7 +518,7 @@ export function ProjectWorkspace({
                               : "subtle"
                         }
                       >
-                        {w.job?.sceneId === scene.id
+                        {w.jobFor(scene.id)
                           ? "Generando…"
                           : w.queue.some((q) => q.sceneId === scene.id)
                             ? "En cola"
@@ -531,16 +531,17 @@ export function ProjectWorkspace({
                                   : "Borrador"}
                       </span>
                     </div>
-                    {(w.job?.sceneId === scene.id ||
+                    {(!!w.jobFor(scene.id) ||
                       w.queue.some((q) => q.sceneId === scene.id)) && (
                       <div className="clip-generation" role="status">
-                        {w.job?.sceneId === scene.id && (
+                        {!!w.jobFor(scene.id) && (
                           <>
                             <strong>
                               <LoaderCircle size={14} className="spin" /> Clip{" "}
-                              {w.job.index} de {w.job.total}
+                              {w.jobFor(scene.id)!.index} de{" "}
+                              {w.jobFor(scene.id)!.total}
                             </strong>
-                            <span>{w.job.text}</span>
+                            <span>{w.jobFor(scene.id)!.text}</span>
                           </>
                         )}
                         {w.queue.some((q) => q.sceneId === scene.id) && (
@@ -590,7 +591,7 @@ export function ProjectWorkspace({
                       !scene.task?.remoteId &&
                       scene.output_request &&
                       !scene.generation_queue?.length &&
-                      w.job?.sceneId !== scene.id && (
+                      !w.jobFor(scene.id) && (
                         <button
                           className="text-button recover-clip"
                           onClick={() =>
@@ -644,7 +645,7 @@ export function ProjectWorkspace({
                           <IconButton
                             label={`${scene.review === "discarded" ? "Recuperar descartado" : "Descartar clip"}: ${scene.title || "Clip"}`}
                             disabled={
-                              w.job?.sceneId === scene.id ||
+                              !!w.jobFor(scene.id) ||
                               w.queue.some((q) => q.sceneId === scene.id)
                             }
                             onClick={() =>
@@ -667,7 +668,7 @@ export function ProjectWorkspace({
                           <IconButton
                             label={`Eliminar clip: ${scene.title || "Sin título"}`}
                             disabled={
-                              w.job?.sceneId === scene.id ||
+                              !!w.jobFor(scene.id) ||
                               w.queue.some((q) => q.sceneId === scene.id)
                             }
                             onClick={() => removeClip(scene.id)}
@@ -686,10 +687,10 @@ export function ProjectWorkspace({
                     </div>
                     {!scene.deleted_at &&
                       scene.task?.remoteId &&
-                      w.job?.sceneId !== scene.id && (
+                      !w.jobFor(scene.id) && (
                         <button
                           className="text-button recover-clip"
-                          disabled={!!w.job}
+                          disabled={w.jobs.length > 0}
                           onClick={() =>
                             void w.run([scene.id], "generate", undefined, true)
                           }
@@ -882,17 +883,25 @@ function ClipDialog({
           Vista previa{sceneBlob(scene) ? " · Lista" : ""}
         </button>
       </div>
-      {w.recovery && (
+      {w.recoveries.some((r) => r.sceneId === scene.id) && (
         <div className="clip-dialog-notice" role="alert">
           El vídeo está listo, pero no se pudo guardar.{" "}
-          <button
-            className="button"
-            onClick={() =>
-              downloadBlob(w.recovery!.blob, "video-recuperado.mp4")
-            }
-          >
-            Descargar ahora
-          </button>
+          {w.recoveries
+            .filter((r) => r.sceneId === scene.id)
+            .map(({ version }, index) => (
+              <button
+                key={version.id}
+                className="button"
+                onClick={() =>
+                  downloadBlob(
+                    version.blob,
+                    `video-recuperado-${index + 1}.mp4`,
+                  )
+                }
+              >
+                Descargar ahora
+              </button>
+            ))}
         </div>
       )}
       {w.notice?.error && w.notice.text !== scene.error && (
@@ -902,7 +911,7 @@ function ClipDialog({
       )}
       <div className="clip-dialog-body">{children}</div>
       <div className="clip-dialog-footnote">
-        {w.job
+        {w.jobs.length > 0
           ? "La generación continúa aunque cierres este editor."
           : "Los cambios se guardan automáticamente en el proyecto."}
       </div>

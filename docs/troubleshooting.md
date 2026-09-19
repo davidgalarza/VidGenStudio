@@ -24,6 +24,8 @@ Revisa el mensaje completo, las restricciones del prompt y las referencias. Que 
 
 La cola se pausa tras errores y al recuperar el estado después de una recarga. Usa **Recuperar resultado** si existe un ID remoto, o **Continuar cola** para solicitudes pendientes. Pausar solo detiene el seguimiento local. No hay ejecución de fondo con la pestaña cerrada.
 
+Con varios vídeos en paralelo, un error detiene los nuevos envíos y deja terminar los que ya estaban activos. Si es un límite de cuota (429), el ajuste baja a un vídeo a la vez; consulta tu cuota antes de continuar. **Ver actividad** muestra cada solicitud y permite **Recuperar N resultados** cuando hay varias operaciones con ID guardado. Si el navegador se queda sin almacenamiento, el aviso ofrece una descarga independiente por cada vídeo que no pudo guardar.
+
 Si la conexión se cortó antes de recibir un identificador, consulta tu actividad en Google antes de lanzar otra generación: el servidor pudo aceptar la primera.
 
 ## Ya no puedo editar o extender un vídeo

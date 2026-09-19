@@ -11,7 +11,7 @@ This is an independent fork of [Video Orchestrator by Rajjit Laishram](https://g
 - **Story mode:** paste a script and let Gemini propose scenes, cast, voices and Nano Banana references. Review everything before producing character dialogue or Gemini TTS voiceover with one Google key, timed montage and per-scene regeneration. See the [Story guide](docs/story.md).
 
 - Empty projects with user-created clips, search, favorites, trash and comparison.
-- Google video generation using a personal API key, visual references and a persistent queue.
+- Google video generation using a personal API key, visual references and a persistent parallel queue: three videos at once by default, configurable from one to four, with per-scene progress and bulk recovery after reloading.
 - Independent outputs for batch requests; derived edit/extension clips preserve their sources.
 - A single-track editor with ordering, trims, split, duplicate, volume, undo/redo and live preview.
 - Focus view, representative filmstrip thumbnails, review loops and keyboard shortcuts.

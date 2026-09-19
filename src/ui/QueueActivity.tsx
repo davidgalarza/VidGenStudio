@@ -10,36 +10,57 @@ export function QueueActivity({
   onClose: () => void;
   openProject: (id: string) => void;
 }) {
-  const active = w.scenes.find((s) => s.id === w.job?.sceneId);
   const recoverable = w.scenes.filter(
     (s) =>
       s.task?.remoteId &&
-      s.id !== active?.id &&
+      !w.jobFor(s.id) &&
       !w.queue.some((q) => q.sceneId === s.id && q.resume),
   );
   return (
     <StudioDialog title="Actividad" onClose={onClose}>
       <p className="hint">
-        Seguimos creando tus clips automáticamente, uno tras otro. Puedes cerrar
-        este panel y seguir trabajando.
+        Hasta {w.parallelism}{" "}
+        {w.parallelism === 1 ? "vídeo a la vez" : "vídeos a la vez"}. Puedes
+        cerrar este panel y seguir trabajando. El orden de las escenas se
+        conserva aunque terminen en otro orden.
       </p>
-      {w.job && (
-        <div className="activity-current" role="status">
+      {!!w.jobs.length && <h3>En curso · {w.jobs.length}</h3>}
+      {w.jobs.map((job) => (
+        <div key={job.sceneId} className="activity-current" role="status">
           <LoaderCircle size={18} className="spin" />
           <div>
-            <strong>{active?.title || "Clip en curso"}</strong>
-            <p>{w.job.text}</p>
-            <small>Esta solicitud ya se envió a Google.</small>
+            <strong>
+              {w.scenes.find((s) => s.id === job.sceneId)?.title ||
+                "Clip en curso"}
+            </strong>
+            <p>{job.text}</p>
+            <small>
+              {
+                w.projects.find(
+                  (p) =>
+                    p.id ===
+                    w.scenes.find((s) => s.id === job.sceneId)?.project_id,
+                )?.name
+              }
+            </small>
           </div>
         </div>
-      )}
-      {!w.job && !!w.queue.length && (
+      ))}
+      {w.queuePaused && !!w.queue.length && (
         <div className="activity-current">
           <div>
             <strong>Creación pausada</strong>
-            <p>Lo pendiente está guardado. Continúa cuando estés listo.</p>
+            <p>
+              {w.jobs.length
+                ? "Los vídeos activos conservan su progreso. No se envían más solicitudes."
+                : "Lo pendiente está guardado. Continúa cuando estés listo."}
+            </p>
           </div>
-          <button className="button" onClick={w.continueQueue}>
+          <button
+            className="button"
+            disabled={!!w.jobs.length}
+            onClick={w.continueQueue}
+          >
             Continuar
           </button>
         </div>
@@ -47,7 +68,7 @@ export function QueueActivity({
       <h3>
         {w.queue.length
           ? `A continuación · ${w.queue.length}`
-          : w.job
+          : w.jobs.length
             ? "No hay más clips esperando"
             : recoverable.length
               ? "No hay solicitudes pendientes de envío"
@@ -94,7 +115,7 @@ export function QueueActivity({
               <button
                 className="icon-button"
                 aria-label={`Generar antes: ${scene?.title}`}
-                title="Generar después del clip en curso"
+                title="Generar en cuanto haya un espacio disponible"
                 disabled={index === 0}
                 onClick={() => void w.prioritize(item.id)}
               >
@@ -118,13 +139,29 @@ export function QueueActivity({
             Google ya recibió estos clips. Recuperar consulta su estado sin
             generar otro vídeo.
           </p>
+          {recoverable.length > 1 && (
+            <button
+              className="button compact"
+              disabled={!!w.jobs.length}
+              onClick={() =>
+                void w.run(
+                  recoverable.map((s) => s.id),
+                  "generate",
+                  undefined,
+                  true,
+                )
+              }
+            >
+              Recuperar {recoverable.length} resultados
+            </button>
+          )}
           <ul className="activity-list">
             {recoverable.map((scene) => (
               <li key={scene.id}>
                 <div>{scene.title}</div>
                 <button
                   className="button compact"
-                  disabled={!!w.job}
+                  disabled={!!w.jobs.length}
                   onClick={() =>
                     void w.run([scene.id], "generate", undefined, true)
                   }
@@ -143,8 +180,8 @@ export function QueueActivity({
       )}
       {!!w.queue.length && (
         <p className="hint">
-          Adelantar un clip cambia su turno. Cancelar pendientes no afecta al
-          vídeo que ya está generándose.
+          Adelantar un clip cambia su turno. Cancelar pendientes no afecta a los
+          vídeos que ya están generándose.
         </p>
       )}
     </StudioDialog>

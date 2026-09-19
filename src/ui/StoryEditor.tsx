@@ -127,7 +127,7 @@ function StorySceneCard({
   const [deleted, setDeleted] = useState(false);
   const busy =
     w.storyJob?.projectId === scene.project_id ||
-    w.job?.sceneId === scene.id ||
+    !!w.jobFor(scene.id) ||
     w.queue.some((q) => q.sceneId === scene.id);
   const ready = !!sceneBlob(scene);
   const dirty =
@@ -213,20 +213,19 @@ function StorySceneCard({
     }
   }
   if (deleted) return null;
-  const status =
-    w.job?.sceneId === scene.id
-      ? w.job.text
-      : busy
-        ? "En cola"
-        : scene.error
-          ? "Necesita atención"
-          : ready
-            ? activeVersion(scene)?.prompt !== scene.prompt
-              ? "Cambios por generar"
-              : "Vídeo listo"
-            : scene.story!.planned
-              ? "Lista para generar"
-              : "Por preparar";
+  const status = w.jobFor(scene.id)
+    ? w.jobFor(scene.id)!.text
+    : busy
+      ? "En cola"
+      : scene.error
+        ? "Necesita atención"
+        : ready
+          ? activeVersion(scene)?.prompt !== scene.prompt
+            ? "Cambios por generar"
+            : "Vídeo listo"
+          : scene.story!.planned
+            ? "Lista para generar"
+            : "Por preparar";
   return (
     <article className="story-scene" aria-label={`Escena ${index + 1}`}>
       <div className="story-scene-media">
@@ -1634,7 +1633,7 @@ function ProductionBoard({
       s.story?.planned &&
       !sceneBlob(s) &&
       !s.task?.remoteId &&
-      w.job?.sceneId !== s.id &&
+      !w.jobFor(s.id) &&
       !w.queue.some((q) => q.sceneId === s.id),
   );
   async function downloadMaterials() {

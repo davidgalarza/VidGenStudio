@@ -31,7 +31,7 @@ flowchart LR
 | Entrada y navegación    | `src/main.tsx`, `src/ui/StudioApp.tsx`                                              | Montaje de React, rutas por hash, proyectos y vistas                      |
 | Contratos de datos      | `src/types.ts`                                                                      | Proyectos, clips, versiones, referencias, solicitudes y tomas del montaje |
 | Persistencia            | `src/lib/storage.ts`, `src/lib/settings.ts`                                         | IndexedDB, operaciones de almacenamiento, clave y preferencias            |
-| Orquestación            | `src/lib/useWorkspace.ts`                                                           | Cola serial, captura de solicitudes, pausa, reintento y notificaciones    |
+| Orquestación            | `src/lib/useWorkspace.ts`                                                           | Cola paralela acotada, solicitudes, pausa, recuperación y notificaciones  |
 | Google                  | `src/lib/google.ts`, `src/lib/referenceImages.ts`                                   | REST, validación, respuestas, descargas y preparación de referencias      |
 | Biblioteca y generación | `src/ui/ProjectWorkspace.tsx`, `src/ui/Editor.tsx`                                  | Revisión de clips y modal de generación/edición/extensión                 |
 | Referencias             | `src/ui/ReferencePicker.tsx`, `src/ui/VideoReferences.tsx`                          | Selección visual, cargas y roles                                          |
@@ -63,7 +63,7 @@ IndexedDB conserva el nombre `vid-gen-studio`, versión de esquema 2, y los alma
 
 1. El usuario confirma una solicitud y su cantidad de clips.
 2. Se capturan prompt, ajustes y referencias; cada salida tiene su clip y entrada de cola.
-3. Las entradas se guardan antes de cerrar el modal. La cola procesa una solicitud cada vez.
+3. Las entradas se guardan antes de cerrar el modal. Un despachador admite hasta el límite configurado (3 por defecto, de 1 a 4), con un controlador y estado independiente por escena.
 4. Se prepara la copia de las referencias y se envía la solicitud.
 5. Cuando Google devuelve un identificador remoto, se persiste para poder consultar el resultado.
 6. Al terminar, se guarda el Blob como versión. Un fallo no elimina un resultado anterior.
@@ -71,6 +71,10 @@ IndexedDB conserva el nombre `vid-gen-studio`, versión de esquema 2, y los alma
 La cola vive en el controlador del espacio de trabajo, fuera del modal. Recargar destruye la ejecución en memoria: las solicitudes persistidas vuelven pausadas y requieren continuación o recuperación explícita. No hay service worker que siga ejecutándolas con la pestaña cerrada.
 
 Una interrupción antes de recibir un ID remoto es ambigua. No se puede garantizar idempotencia de un nuevo POST. La recuperación con un ID conocido consulta el resultado sin crear otra generación. Véase [contrato de Google](google-api.md).
+
+El despachador de `useWorkspace.ts` conserva un único Web Lock `vidgen-generation` durante toda la tanda, evitando envíos duplicados entre pestañas. Comparte el orden de admisión con altas, cancelaciones y prioridades; al completarse un trabajo, añadirse solicitudes o cambiar el límite, despierta para cubrir los espacios disponibles. No ejecuta dos solicitudes de la misma escena simultáneamente. Cada tarea conserva su propia captura de prompt, ajustes, imágenes e ID remoto.
+
+Los errores detienen nuevas admisiones antes de esperar escrituras en IndexedDB; otros trabajos activos conservan su seguimiento. Un `GoogleRateLimitError` reduce la preferencia `vidgen_parallelism` a 1 y pausa, sin reintento automático. No es un error terminal: si ocurre durante el polling se mantiene el ID remoto. La pausa del usuario aborta todos los seguimientos locales. Los resultados que no caben en IndexedDB se conservan por separado en memoria para descargarlos. Las exportaciones locales de FFmpeg siguen siendo seriales.
 
 ## Montaje no destructivo
 

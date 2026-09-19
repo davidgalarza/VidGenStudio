@@ -71,7 +71,7 @@ export function Editor({
       s.prompt.trim() &&
       !s.task?.remoteId &&
       !w.queue.some((q) => q.sceneId === s.id) &&
-      w.job?.sceneId !== s.id,
+      !w.jobFor(s.id),
   );
   const version = scene ? activeVersion(scene) : undefined;
   const config = scene ? version?.settings || sceneSettings(scene) : undefined;
@@ -79,7 +79,7 @@ export function Editor({
     (sum, s) => sum + (activeVersion(s)?.duration || sceneSettings(s).duration),
     0,
   );
-  const busy = !!w.job;
+  const busy = w.jobs.length > 0;
   const add = () =>
     w.action(async () => {
       const added = await db.addScene(
@@ -228,10 +228,10 @@ export function Editor({
                     <span>Mantén aquí lo importante</span>
                   </div>
                 )}
-                {w.job?.sceneId === scene.id && (
+                {!!w.jobFor(scene.id) && (
                   <div className="render-overlay">
                     <LoaderCircle className="spin" size={24} />
-                    <strong>{w.job.text}</strong>
+                    <strong>{w.jobFor(scene.id)!.text}</strong>
                     <span>Puedes seguir revisando tus escenas.</span>
                   </div>
                 )}
@@ -322,7 +322,7 @@ export function Editor({
                             sceneSettings(s).duration}
                           s
                         </span>
-                        {w.job?.sceneId === s.id && (
+                        {!!w.jobFor(s.id) && (
                           <LoaderCircle
                             className="spin scene-processing"
                             size={18}
@@ -501,7 +501,7 @@ function Inspector({
   const [submitting, setSubmitting] = useState(false);
   const awaiting =
     !sceneBlob(scene) &&
-    (w.job?.sceneId === scene.id || !!scene.generation_queue?.length);
+    (!!w.jobFor(scene.id) || !!scene.generation_queue?.length);
   const retryable =
     !!scene.output_request &&
     !sceneBlob(scene) &&
@@ -527,7 +527,7 @@ function Inspector({
         w.notify(e.message, true);
       });
   };
-  const currentJob = w.job?.sceneId === scene.id;
+  const currentJob = !!w.jobFor(scene.id);
   const needsRecovery = !!scene.task?.remoteId && !currentJob;
   const generate = async () => {
     if (submitting) return;
@@ -732,7 +732,7 @@ function Inspector({
             </p>
             <button
               className="button full"
-              disabled={!!w.job || !!scene.generation_queue?.length}
+              disabled={w.jobs.length > 0 || !!scene.generation_queue?.length}
               onClick={() =>
                 void w.action(
                   () => db.separateVersions(scene.id),
@@ -882,7 +882,7 @@ function Inspector({
           <>
             <button
               className="button primary full"
-              disabled={!!w.job}
+              disabled={w.jobs.length > 0}
               onClick={async () => {
                 if (await w.run([scene.id], "generate", undefined, true))
                   onGenerationQueued?.();
@@ -893,7 +893,7 @@ function Inspector({
             </button>
             <button
               className="text-button"
-              disabled={!!w.job}
+              disabled={w.jobs.length > 0}
               onClick={() => {
                 if (
                   window.confirm(

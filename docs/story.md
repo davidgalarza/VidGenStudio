@@ -12,6 +12,8 @@ Historia convierte un guion en un proyecto audiovisual editable. Utiliza la mism
 4. Pulsa **Producir historia** cuando el plan esté listo. Se guardan los cambios, se prepara la narración y se añaden los vídeos a la cola en segundo plano. El audio real determina cuántos clips necesita cada escena.
 5. Revisa las tomas y abre el montaje para recortar, mover, dividir o quitar partes. Cada vídeo se puede regenerar conservando su narración. Las tomas anteriores siguen disponibles.
 
+Los vídeos se producen en paralelo, hasta 3 a la vez por defecto. Cada escena muestra su propio progreso; el orden del montaje, el guion y las voces se conservan aunque los resultados lleguen en otro orden. Puedes elegir de 1 a 4 en **Ajustes → Generación en paralelo**. La planificación, la creación de referencias y la preparación de la voz mantienen su flujo actual. Consulta [cola, pausa y recuperación](usage.md#cola-pausa-y-recuperación) para los límites de Google, prioridades y recuperación múltiple.
+
 El guion y las indicaciones iniciales se conservan al salir a Ajustes o recargar. Si otra vista cambia el proyecto mientras tienes ediciones pendientes, puedes recuperar tu borrador o usar la versión guardada.
 
 El borrador de revisión sobrevive a una recarga en la misma pestaña; **Guardar cambios** lo guarda en el proyecto. Producir también lo guarda. El guion original permanece disponible en los materiales, aunque edites o reordenes el texto de las escenas.

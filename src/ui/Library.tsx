@@ -245,7 +245,7 @@ export function Library({
                     </IconButton>
                     <IconButton
                       label={`Eliminar ${asset.file_name}`}
-                      disabled={!!w.job}
+                      disabled={w.jobs.length > 0}
                       onClick={() => {
                         if (
                           window.confirm(
