@@ -31,6 +31,8 @@ import {
   type Scene,
 } from "../types";
 import { VideoReferences } from "./VideoReferences";
+import { PromptReview } from "./PromptReview";
+import { storyPrompt } from "../lib/story";
 import { AddButton, Clip, Empty, IconButton, VideoControls } from "./common";
 
 export function Editor({
@@ -481,13 +483,17 @@ function Inspector({
     scene.title || `Escena ${scene.order + 1}`,
   );
   const [mode, setMode] = useState<GenerationMode>(
-    activeVersion(scene)?.interactionId
-      ? "edit"
-      : scene.output_request?.task.mode || "generate",
+    scene.error && scene.output_request
+      ? scene.output_request.task.mode
+      : activeVersion(scene)?.interactionId
+        ? "edit"
+        : scene.output_request?.task.mode || "generate",
   );
   const [editPrompt, setEditPrompt] = useState(scene.edit_prompt || "");
   const [extendPrompt, setExtendPrompt] = useState(scene.extend_prompt || "");
   const instruction = mode === "extend" ? extendPrompt : editPrompt;
+  const storyConfig = w.projects.find((p) => p.id === scene.project_id)?.story;
+  const reviewStory = mode === "generate" && scene.story && storyConfig;
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">(
     "saved",
   );
@@ -784,6 +790,86 @@ function Inspector({
             {scene.error}
           </div>
         )}
+        <PromptReview
+          error={
+            scene.output_request && scene.output_request.task.mode !== mode
+              ? undefined
+              : scene.error
+          }
+          disabled={
+            submitting ||
+            awaiting ||
+            currentJob ||
+            !!scene.generation_queue?.length ||
+            w.storyJob?.projectId === scene.project_id ||
+            saveState === "saving"
+          }
+          input={{
+            description: reviewStory
+              ? scene.story!.visual
+              : mode === "generate"
+                ? prompt
+                : instruction,
+            lockedText: reviewStory ? scene.story!.text : undefined,
+            context: reviewStory
+              ? prompt
+              : mode === "generate"
+                ? undefined
+                : `Operación: ${mode}. Descripción del vídeo base (no editable): ${scene.prompt}`,
+            referenceCount:
+              scene.output_request?.images.length ??
+              (scene.reference_asset_ids?.length || 0) +
+                Number(!!scene.first_frame_asset_id) +
+                Number(!!scene.last_frame_asset_id),
+          }}
+          onApply={async (description) => {
+            const story = reviewStory
+              ? { ...scene.story!, visual: description }
+              : undefined;
+            const nextPrompt = story
+              ? storyPrompt(
+                  storyConfig!,
+                  story,
+                  scene.reference_asset_ids?.length
+                    ? scene.reference_asset_ids
+                    : scene.first_frame_asset_id
+                      ? [scene.first_frame_asset_id]
+                      : [],
+                )
+              : description;
+            const changes: Partial<Scene> = {
+              ...(mode === "generate"
+                ? { prompt: nextPrompt }
+                : mode === "edit"
+                  ? { edit_prompt: nextPrompt }
+                  : { extend_prompt: nextPrompt }),
+              ...(story ? { story } : {}),
+              ...(scene.output_request
+                ? {
+                    output_request: {
+                      ...scene.output_request,
+                      task: {
+                        ...scene.output_request.task,
+                        prompt: nextPrompt,
+                        remoteId: undefined,
+                      },
+                    },
+                  }
+                : {}),
+              error: undefined,
+              task: undefined,
+              status: sceneBlob(scene) ? "completed" : "pending",
+            };
+            await w.patch(scene.id, changes);
+            if (mode === "generate") setPrompt(nextPrompt);
+            else if (mode === "edit") setEditPrompt(nextPrompt);
+            else setExtendPrompt(nextPrompt);
+            setSaveState("saved");
+            w.notify(
+              "Descripción aplicada. Ya puedes generar con los cambios.",
+            );
+          }}
+        />
         {!getApiKey() ? (
           <button className="button primary full" onClick={openSettings}>
             Conectar Google para generar
@@ -834,7 +920,7 @@ function Inspector({
               setSubmitting(false);
             }}
           >
-            Reintentar clip
+            {scene.error ? "Reintentar clip" : "Generar con cambios"}
           </button>
         ) : (
           <button

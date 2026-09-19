@@ -2241,3 +2241,115 @@ test("refined montage: focus, audition, cursor trims, loop and single-step audio
   ).toBe(true);
   expect(errors).toEqual([]);
 });
+
+for (const mode of ["generate", "edit", "extend"] as const) {
+  test(`content revision retries a failed ${mode} clip with the accepted text and the same base`, async ({
+    page,
+  }) => {
+    const revised =
+      "La cámara sigue el movimiento de las hojas con luz natural suave.";
+    const requests: Record<string, unknown>[] = [];
+    let reviews = 0;
+    const failureAt = mode === "generate" ? 1 : 2;
+    await page.addInitScript(() =>
+      localStorage.setItem("vid_gen_api_key", "test-google-key"),
+    );
+    await page.route(google, async (route) => {
+      const body = route.request().postDataJSON();
+      if (body?.model === "gemini-3.8-flash") {
+        reviews++;
+        return route.fulfill({
+          json: {
+            output_text: JSON.stringify({
+              kind: "clarification",
+              description: revised,
+              explanation: "La acción se describe de forma concreta.",
+            }),
+          },
+        });
+      }
+      if (route.request().method() !== "POST")
+        return route.fulfill({ json: { models: [] } });
+      requests.push(body);
+      if (requests.length === failureAt)
+        return route.fulfill({
+          status: 400,
+          json: {
+            error: {
+              message: "Request blocked due to prohibited content guidelines.",
+            },
+          },
+        });
+      return route.fulfill({
+        json: {
+          id: `video-${requests.length}`,
+          status: "completed",
+          output_video: { data: silent, mime_type: "video/mp4" },
+        },
+      });
+    });
+    await page.goto("/");
+    await createProject(page);
+    await page
+      .getByRole("button", { name: "Generar escena", exact: true })
+      .click();
+    if (mode !== "generate") {
+      await reopenReady(page);
+      await page
+        .getByRole("button", {
+          name: mode === "edit" ? "Editar" : "Extender",
+          exact: true,
+        })
+        .click();
+      await page
+        .getByLabel(
+          mode === "edit"
+            ? "¿Qué quieres cambiar?"
+            : "¿Cómo continúa la escena?",
+        )
+        .fill("La cámara muestra las hojas bajo la luz del sol.");
+      await page
+        .getByRole("button", {
+          name: mode === "edit" ? "Crear clip editado" : "Crear clip extendido",
+          exact: true,
+        })
+        .click();
+    }
+    await page
+      .getByRole("button", { name: "Revisar escena", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Revisar descripción con Gemini" })
+      .click();
+    const dialog = page.getByRole("dialog", {
+      name: "Revisar descripción",
+      exact: true,
+    });
+    await expect(dialog.getByLabel("Descripción propuesta")).toHaveValue(
+      revised,
+    );
+    expect(requests).toHaveLength(failureAt);
+    await dialog
+      .getByRole("button", { name: "Aplicar descripción", exact: true })
+      .click();
+    expect(requests).toHaveLength(failureAt);
+    await page
+      .getByRole("button", { name: "Generar con cambios", exact: true })
+      .click();
+    await expect.poll(() => requests.length).toBe(failureAt + 1);
+    expect(reviews).toBe(1);
+    expect(requests.at(-1)!.input).toContain(revised);
+    expect(requests.at(-1)!.previous_interaction_id).toBe(
+      requests[failureAt - 1].previous_interaction_id,
+    );
+    expect(requests.at(-1)!.response_format).toEqual(
+      requests[failureAt - 1].response_format,
+    );
+    await expect(
+      page.locator(".clip-title [role=status]").filter({ hasText: "Listo" }),
+    ).toHaveCount(mode === "generate" ? 1 : 2);
+    await expect(page.locator(".project-clip")).toHaveCount(
+      mode === "generate" ? 1 : 2,
+    );
+  });
+}

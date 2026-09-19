@@ -53,6 +53,18 @@ Mantén la pestaña abierta durante las solicitudes. Puedes cambiar de vista y s
 
 Los errores de imágenes permiten **Revisar sin más imágenes** y completarlas después.
 
+### Revisar una escena bloqueada por contenido
+
+Si Google devuelve un bloqueo de contenido, aparece **Revisar descripción con Gemini** en la escena y en el editor de clips. Desde la biblioteca, **Revisar escena** abre el editor. No se ofrece esta revisión para errores de clave, cuota, conexión o procesamiento de archivos.
+
+1. Pulsa **Revisar descripción con Gemini**. Se envía una única solicitud de texto con la descripción y el contexto de esa escena, usando la clave de Google configurada. Consume cuota de Gemini; no genera vídeo.
+2. Compara la descripción actual con la propuesta. Una aclaración conserva la intención; si la propuesta cambia contenido, se presenta como **Alternativa: cambia parte de la escena** y explica el cambio. Puedes cerrar sin modificar nada o cancelar una revisión en curso. Si Gemini necesita cambios en el diálogo o el contexto, se indica **Necesita revisión manual** sin ofrecer una aplicación automática.
+3. Pulsa **Aplicar descripción** para guardarla y, después, **Generar escena** o **Generar con cambios** cuando quieras crear el vídeo. Si hay otras solicitudes en una cola pausada, puedes continuar desde la actividad. Se actualiza también el texto de la solicitud fallida para no repetir el prompt anterior.
+
+En Historia se conserva el texto hablado, el audio, sus tiempos, los personajes y las referencias. En ediciones y extensiones de clips se conserva el vídeo base. La revisión recibe texto, no las imágenes de referencia ni el vídeo base: no identifica qué archivo podría causar el bloqueo y no los sustituye. La propuesta aún no aplicada no se conserva al recargar; la descripción aceptada sí se guarda en el navegador.
+
+No hay un bucle de reintentos ni cambios en los filtros de seguridad. El revisor busca aclaraciones legítimas o alternativas que cambien realmente el contenido problemático, nunca ocultarlo. No se garantiza la aceptación. Google aplica filtros al contenido generado y a las imágenes aportadas; consulta la [documentación de Veo](https://ai.google.dev/gemini-api/docs/veo).
+
 Cada solicitud puede consumir cuota. No se repiten automáticamente solicitudes de pago. Una interrupción antes de guardar una respuesta puede dejar incierto si Google la procesó; continuar puede volver a solicitar esa parte. El bloqueo entre pestañas evita dos preparaciones simultáneas donde el navegador admite Web Locks.
 
 Las claves se configuran una sola vez en Ajustes. El acceso a TTS, imágenes, texto y vídeo depende de los modelos habilitados y de la cuota de tu cuenta; comprobar la conexión no garantiza acceso a todos.

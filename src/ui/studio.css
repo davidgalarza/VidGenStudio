@@ -2404,6 +2404,68 @@ button {
   font-size: 0.82rem;
   line-height: 1.5;
 }
+.prompt-review,
+.prompt-review-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  min-width: 0;
+}
+.prompt-review > .button {
+  align-self: flex-start;
+  white-space: normal;
+  text-align: left;
+}
+.prompt-review-body {
+  gap: 20px;
+}
+.prompt-review-body p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.prompt-review-body h3 {
+  margin: 0 0 8px;
+}
+.prompt-review-body summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.prompt-review-body .prompt-review-original {
+  margin-top: 10px;
+  max-height: 150px;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.prompt-review-explanation {
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.prompt-review-progress,
+.prompt-review-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.prompt-review-progress svg {
+  flex-shrink: 0;
+}
+.prompt-review-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.prompt-review-actions .button {
+  white-space: normal;
+}
+.prompt-review-body textarea {
+  width: 100%;
+  max-height: 260px;
+  line-height: 1.6;
+}
 .download-options {
   display: flex;
   flex-direction: column;

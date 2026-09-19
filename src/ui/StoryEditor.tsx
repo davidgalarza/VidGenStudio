@@ -52,6 +52,7 @@ import { createZip } from "../lib/archive";
 import { downloadBlob } from "../lib/media";
 import { Clip } from "./common";
 import { StoryCastReview } from "./StoryCastReview";
+import { PromptReview } from "./PromptReview";
 import {
   normalizeStoryCast,
   assignStorySpeaker,
@@ -131,13 +132,13 @@ function StorySceneCard({
   const ready = !!sceneBlob(scene);
   const dirty =
     visual !== scene.story!.visual || dialogue !== scene.story!.text;
-  async function save() {
+  async function save(nextVisual = visual, reviewed = false) {
     if (
-      !visual.trim() ||
+      !nextVisual.trim() ||
       (config.mode === "spoken" && !dialogue.trim()) ||
       saving
     )
-      return;
+      return false;
     setSaving(true);
     try {
       const spokenSeconds =
@@ -146,6 +147,7 @@ function StorySceneCard({
           dialogue.length / 11,
         ) + 1.5;
       if (
+        !reviewed &&
         config.mode === "spoken" &&
         spokenSeconds > maxStoryDuration(config.settings)
       )
@@ -154,22 +156,42 @@ function StorySceneCard({
         );
       const story = {
         ...scene.story!,
-        text: dialogue,
-        visual: visual.trim(),
+        text: reviewed ? scene.story!.text : dialogue,
+        visual: nextVisual.trim(),
         planned: true,
       };
+      const prompt = storyPrompt(
+        config,
+        story,
+        scene.reference_asset_ids?.length
+          ? scene.reference_asset_ids
+          : scene.first_frame_asset_id
+            ? [scene.first_frame_asset_id]
+            : [],
+      );
       await w.patch(scene.id, {
         story,
-        prompt: storyPrompt(
-          config,
-          story,
-          scene.reference_asset_ids?.length
-            ? scene.reference_asset_ids
-            : scene.first_frame_asset_id
-              ? [scene.first_frame_asset_id]
-              : [],
-        ),
-        ...(config.mode === "spoken"
+        ...(reviewed
+          ? {
+              error: undefined,
+              task: undefined,
+              status: ready ? ("completed" as const) : ("pending" as const),
+              ...(scene.output_request
+                ? {
+                    output_request: {
+                      ...scene.output_request,
+                      task: {
+                        ...scene.output_request.task,
+                        prompt,
+                        remoteId: undefined,
+                      },
+                    },
+                  }
+                : {}),
+            }
+          : {}),
+        prompt,
+        ...(!reviewed && config.mode === "spoken"
           ? {
               settings: {
                 ...scene.settings!,
@@ -179,11 +201,13 @@ function StorySceneCard({
           : {}),
       });
       setVisual(story.visual);
+      return true;
     } catch (e) {
       w.notify(
         e instanceof Error ? e.message : "No se pudo guardar la escena.",
         true,
       );
+      return false;
     } finally {
       setSaving(false);
     }
@@ -259,6 +283,32 @@ function StorySceneCard({
           />
         </label>
         {scene.error && <p className="inline-error">{scene.error}</p>}
+        <PromptReview
+          error={scene.error}
+          disabled={busy || saving}
+          input={{
+            description: visual,
+            lockedText: scene.story!.text,
+            context: storyPrompt(
+              config,
+              { ...scene.story!, visual },
+              scene.reference_asset_ids || [],
+            ),
+            referenceCount:
+              (scene.reference_asset_ids?.length || 0) +
+              Number(!!scene.first_frame_asset_id) +
+              Number(!!scene.last_frame_asset_id),
+          }}
+          onApply={async (description) => {
+            if (!(await save(description, true)))
+              throw new Error(
+                "No se pudo aplicar la descripción. Revisa los campos de la escena.",
+              );
+            w.notify(
+              "Descripción aplicada. Pulsa Generar escena cuando quieras crear el vídeo.",
+            );
+          }}
+        />
         {(scene.versions?.length || 0) > 1 && (
           <label className="story-takes">
             Toma utilizada

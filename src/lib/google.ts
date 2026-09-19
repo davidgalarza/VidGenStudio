@@ -4,6 +4,7 @@ import {
   type VideoSettings,
   type GenerationTask,
 } from "../types";
+import { contentBlockMessage, isContentBlock } from "./contentReview";
 const BASE = "https://generativelanguage.googleapis.com/v1beta";
 export interface ReferenceImage {
   data: string;
@@ -53,6 +54,8 @@ interface VeoOperation {
 }
 function providerMessage(message: string, apiKey = "") {
   const detail = apiKey ? message.replaceAll(apiKey, "[clave]") : message;
+  if (isContentBlock(detail) && !detail.startsWith(contentBlockMessage))
+    return `${contentBlockMessage} Detalle de Google: ${detail.slice(0, 1500)}`;
   if (/the file failed to be processed/i.test(detail))
     return "Google no pudo procesar un archivo de esta generación. Si usas referencias, prueba a sustituirlas de una en una. El mensaje de Google no especifica cuál falló.";
   return detail;
@@ -86,6 +89,7 @@ async function request<T>(
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     const detail = providerMessage(String(body.error?.message || ""), apiKey);
+    if (isContentBlock(detail)) throw new TerminalGenerationError(detail);
     const hints: Record<number, string> = {
       400: "Google rechazó la solicitud. Revisa la clave, el prompt y las referencias.",
       401: "La clave no es válida. Revísala en Ajustes.",
@@ -388,7 +392,12 @@ export async function generateVideo(args: {
       (result.status && result.status !== "completed")
     )
       throw new (
-        result.status === "failed" || result.status === "cancelled"
+        result.status === "failed" ||
+          result.status === "cancelled" ||
+          isContentBlock(
+            result.error?.message ||
+              result.errors?.map((e) => e.message).join(" "),
+          )
           ? TerminalGenerationError
           : Error
       )(
@@ -411,6 +420,8 @@ export async function generateVideo(args: {
         .join(" ")
         .replaceAll(apiKey, "[clave]")
         .slice(0, 1500);
+      if (isContentBlock(detail))
+        throw new TerminalGenerationError(providerMessage(detail, apiKey));
       throw new Error(
         detail
           ? `Google respondió sin vídeo: ${detail}`
@@ -476,14 +487,27 @@ export async function generateVideo(args: {
     });
   }
   if (operation.error)
-    throw new Error(operation.error.message || "Veo no pudo generar el vídeo.");
+    throw new TerminalGenerationError(
+      providerMessage(
+        operation.error.message || "Veo no pudo generar el vídeo.",
+        apiKey,
+      ),
+    );
   const result = operation.response?.generateVideoResponse,
     video = result?.generatedSamples?.[0]?.video;
-  if (!video)
-    throw new Error(
-      result?.raiMediaFilteredReasons?.join(" ") ||
-        "Veo no devolvió un vídeo. Revisa el prompt.",
+  if (!video) {
+    const reason = providerMessage(
+      result?.raiMediaFilteredReasons?.join(" ") || "",
+      apiKey,
     );
+    throw new TerminalGenerationError(
+      reason
+        ? isContentBlock(reason)
+          ? reason
+          : `${contentBlockMessage} Detalle de Google: ${reason}`
+        : "Veo no devolvió un vídeo. Revisa el prompt.",
+    );
+  }
   onProgress("Guardando el vídeo…");
   return {
     blob: await downloadVideo(
@@ -616,11 +640,14 @@ export function googleInteraction<T>(
   apiKey: string,
   payload: Record<string, unknown>,
   timeout = 180000,
+  signal?: AbortSignal,
 ): Promise<T> {
   if (!apiKey.trim()) throw new Error("Conecta tu clave de Google en Ajustes.");
   return request<T>(`${BASE}/interactions`, apiKey, {
     method: "POST",
-    signal: AbortSignal.timeout(timeout),
+    signal: signal
+      ? AbortSignal.any([signal, AbortSignal.timeout(timeout)])
+      : AbortSignal.timeout(timeout),
     body: JSON.stringify(payload),
   });
 }
@@ -628,14 +655,20 @@ export async function storyJSON<T>(
   apiKey: string,
   input: string,
   schema: Record<string, unknown>,
+  options: { signal?: AbortSignal; invalidMessage?: string } = {},
 ): Promise<T> {
   const result = await googleInteraction<
     Interaction & { output_text?: string }
-  >(apiKey, {
-    model: "gemini-3.8-flash",
-    input,
-    response_format: { type: "text", mime_type: "application/json", schema },
-  });
+  >(
+    apiKey,
+    {
+      model: "gemini-3.8-flash",
+      input,
+      response_format: { type: "text", mime_type: "application/json", schema },
+    },
+    180000,
+    options.signal,
+  );
   const text =
     result.output_text ||
     modelOutput(result)
@@ -646,7 +679,8 @@ export async function storyJSON<T>(
     return JSON.parse(text);
   } catch {
     throw new Error(
-      "Gemini no devolvió una propuesta válida. El guion sigue guardado; puedes volver a intentarlo.",
+      options.invalidMessage ||
+        "Gemini no devolvió una propuesta válida. El guion sigue guardado; puedes volver a intentarlo.",
     );
   }
 }

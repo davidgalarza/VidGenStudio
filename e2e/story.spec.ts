@@ -70,6 +70,9 @@ async function providers(
     spoken?: boolean;
     split?: boolean;
     holdSpeech?: Promise<void>;
+    blockVideo?: boolean;
+    reviewKind?: "clarification" | "alternative" | "manual";
+    holdReview?: Promise<void>;
   } = {},
 ) {
   const calls = {
@@ -78,6 +81,7 @@ async function providers(
     images: 0,
     video: 0,
     prompts: [] as string[],
+    reviews: 0,
   };
   await page.route("**/api.elevenlabs.io/**", () => {
     throw new Error("No obsolete voice provider should receive a request");
@@ -87,6 +91,21 @@ async function providers(
     expect(route.request().headers()["x-goog-api-key"]).toBe("test-google-key");
     const body = route.request().postDataJSON();
     if (body?.model === "gemini-3.8-flash") {
+      if (body.input.includes("SCENE_REVIEW_INPUT: ")) {
+        calls.reviews++;
+        if (options.holdReview) await options.holdReview;
+        return route.fulfill({
+          json: {
+            output_text: JSON.stringify({
+              kind: options.reviewKind || "clarification",
+              description:
+                "Un diagrama muestra rayos de luz llegando a las hojas de una planta.",
+              explanation:
+                "La propuesta concreta cómo se representa la luz en el diagrama.",
+            }),
+          },
+        });
+      }
       calls.plans++;
       if (options.failPlan && calls.plans === 1)
         return route.fulfill({
@@ -222,6 +241,16 @@ async function providers(
           ? body.input
           : JSON.stringify(body.input),
       );
+      if (options.blockVideo && calls.video === 1)
+        return route.fulfill({
+          status: 400,
+          json: {
+            error: {
+              message:
+                "Request blocked due to prohibited content guidelines. Please modify your input and retry.",
+            },
+          },
+        });
       return route.fulfill({
         json: {
           id: `generated-${calls.video}`,
@@ -896,4 +925,179 @@ test("a long story identifies hidden speaker mismatches and repairs the affected
   expect(data.scenes).toHaveLength(0);
   expect(calls.plans).toBe(0);
   expect(calls.video).toBe(0);
+});
+
+async function blockedStory(page: Page) {
+  await init(page);
+  await page
+    .getByLabel("Guion completo", { exact: true })
+    .fill("La luz permite que crezcan las plantas.");
+  await page
+    .getByRole("button", { name: "Crear propuesta", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Producir historia", exact: true })
+    .first()
+    .click();
+  const scene = page.getByRole("article", { name: "Escena 1", exact: true });
+  await expect(scene).toContainText("Google bloqueó esta generación");
+  return scene;
+}
+
+test("content review preserves narration and references, persists only the accepted scene adjustment and sends the new prompt on retry", async ({
+  page,
+}) => {
+  const calls = await providers(page, { split: true, blockVideo: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const scene = await blockedStory(page);
+  const before = await stored(page);
+  await scene
+    .getByRole("button", { name: "Revisar descripción con Gemini" })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Revisar descripción",
+    exact: true,
+  });
+  await expect(dialog.getByLabel("Descripción propuesta")).toHaveValue(
+    "Un diagrama muestra rayos de luz llegando a las hojas de una planta.",
+  );
+  expect(calls.video).toBe(1);
+  expect(calls.reviews).toBe(1);
+  expect((await stored(page)).scenes[0].prompt).toBe(before.scenes[0].prompt);
+  if (process.env.STORY_CAPTURE) {
+    await page.screenshot({
+      path: "artifacts/scene-review-desktop.png",
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({
+      path: "artifacts/scene-review-mobile.png",
+      fullPage: true,
+    });
+    expect(
+      await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth),
+    ).toBe(true);
+  }
+  await dialog
+    .getByRole("button", { name: "Aplicar descripción", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  expect(calls.video).toBe(1);
+  const after = await stored(page);
+  expect(after.narrations).toEqual(before.narrations);
+  expect(after.projects[0].story?.script).toBe(
+    before.projects[0].story?.script,
+  );
+  expect(after.scenes[0].story).toEqual({
+    ...before.scenes[0].story,
+    visual:
+      "Un diagrama muestra rayos de luz llegando a las hojas de una planta.",
+  });
+  expect(after.scenes[0].settings).toEqual(before.scenes[0].settings);
+  expect(after.scenes[0].reference_asset_ids).toEqual(
+    before.scenes[0].reference_asset_ids,
+  );
+  expect(after.scenes[0].output_request?.task.prompt).toBe(
+    after.scenes[0].prompt,
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "Historia", exact: true }).click();
+  await expect(scene.getByLabel("Imagen de la escena 1")).toHaveValue(
+    "Un diagrama muestra rayos de luz llegando a las hojas de una planta.",
+  );
+  await scene
+    .getByRole("button", { name: "Generar escena", exact: true })
+    .click();
+  const continueQueue = page.getByRole("button", {
+    name: "Continuar cola",
+    exact: true,
+  });
+  if (await continueQueue.isVisible()) await continueQueue.click();
+  await expect(scene).toContainText("Vídeo listo", { timeout: 15000 });
+  expect(calls.video).toBe(2);
+  expect(calls.speech).toBe(1);
+  expect(calls.prompts[1]).toContain(
+    "Un diagrama muestra rayos de luz llegando",
+  );
+  expect((await stored(page)).scenes).toHaveLength(before.scenes.length);
+});
+
+test("a substantive alternative is labelled and can be dismissed without changing the failed scene", async ({
+  page,
+}) => {
+  const calls = await providers(page, {
+    split: true,
+    blockVideo: true,
+    reviewKind: "alternative",
+  });
+  const scene = await blockedStory(page);
+  const before = await stored(page);
+  await scene
+    .getByRole("button", { name: "Revisar descripción con Gemini" })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Revisar descripción",
+    exact: true,
+  });
+  await expect(dialog).toContainText("Alternativa: cambia parte de la escena");
+  await dialog
+    .getByRole("button", { name: "Cerrar sin cambiar", exact: true })
+    .click();
+  expect((await stored(page)).scenes).toEqual(before.scenes);
+  expect(calls.video).toBe(1);
+});
+
+test("manual review cannot be applied or start video generation", async ({
+  page,
+}) => {
+  const calls = await providers(page, {
+    split: true,
+    blockVideo: true,
+    reviewKind: "manual",
+  });
+  const scene = await blockedStory(page);
+  await scene
+    .getByRole("button", { name: "Revisar descripción con Gemini" })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Revisar descripción",
+    exact: true,
+  });
+  await expect(dialog).toContainText("Necesita revisión manual");
+  await expect(
+    dialog.getByRole("button", { name: "Aplicar descripción" }),
+  ).toHaveCount(0);
+  await expect(dialog.getByLabel("Descripción propuesta")).toHaveCount(0);
+  expect(calls.video).toBe(1);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+});
+
+test("cancelling a pending text review leaves the scene unchanged and ignores the late response", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const holdReview = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const calls = await providers(page, {
+    split: true,
+    blockVideo: true,
+    holdReview,
+  });
+  const scene = await blockedStory(page);
+  const before = await stored(page);
+  await scene
+    .getByRole("button", { name: "Revisar descripción con Gemini" })
+    .click();
+  await expect.poll(() => calls.reviews).toBe(1);
+  await page
+    .getByRole("button", { name: "Cancelar revisión", exact: true })
+    .click();
+  release();
+  await expect(
+    page.getByRole("dialog", { name: "Revisar descripción", exact: true }),
+  ).toHaveCount(0);
+  expect((await stored(page)).scenes).toEqual(before.scenes);
+  expect(calls.video).toBe(1);
 });

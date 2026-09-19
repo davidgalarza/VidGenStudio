@@ -33,6 +33,7 @@ import { clipFilename } from "../lib/archive";
 import { Clip, Empty, IconButton } from "./common";
 import { SequenceEditor } from "./SequenceEditor";
 import { Editor } from "./Editor";
+import { isContentBlock } from "../lib/contentReview";
 import { VideoDownloadDialog } from "./VideoDownloadDialog";
 import { DownloadDialog } from "./DownloadDialog";
 import { CompareDialog } from "./CompareDialog";
@@ -592,9 +593,15 @@ export function ProjectWorkspace({
                       w.job?.sceneId !== scene.id && (
                         <button
                           className="text-button recover-clip"
-                          onClick={() => void w.retry(scene.id)}
+                          onClick={() =>
+                            isContentBlock(scene.error)
+                              ? openClip(scene.id)
+                              : void w.retry(scene.id)
+                          }
                         >
-                          Reintentar clip
+                          {isContentBlock(scene.error)
+                            ? "Revisar escena"
+                            : "Reintentar clip"}
                         </button>
                       )}
                     {scene.origin &&
