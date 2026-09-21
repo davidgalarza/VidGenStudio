@@ -72,7 +72,7 @@ Las pruebas crean datos sintéticos en contextos aislados e interceptan las soli
 
 `tests/storyLocations.test.ts` comprueba la recuperación de escenarios omitidos, nombres equivalentes sin ambigüedad, reutilización entre lotes y conservación de imágenes y texto. `e2e/locations.spec.ts` retoma una propuesta guardada con el error de lugar ausente y la lleva a producción, con y sin generación automática de referencias, sin repetir la solicitud de planificación.
 
-`tests/dialoguePhrasing.test.ts` cubre cortes por frases y cláusulas, colas cortas, límites de Omni/Veo, conservación literal y unión de continuaciones entre lotes sin alterar escenas producidas. `e2e/phrasing.spec.ts` comprueba que las tomas previstas y producidas mantienen una misma cláusula completa aunque el modelo fragmente el diálogo o las escenas.
+`tests/dialoguePhrasing.test.ts` cubre cortes por frases y cláusulas, colas cortas, límites de Omni/Veo, conservación literal y unión de continuaciones entre lotes sin alterar escenas producidas. Incluye la regresión de una enumeración técnica partida tras «penetración profunda,»: protege frases completas como una restricción, independientemente de cómo el modelo fragmente los metadatos, y aísla las frases demasiado largas de sus vecinas. `e2e/phrasing.spec.ts` comprueba estos repartos desde la propuesta hasta la producción simulada, también en plano compartido, conservando el texto después de recargar.
 
 Para ejecutar solo el área modificada:
 

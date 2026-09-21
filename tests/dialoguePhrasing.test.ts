@@ -64,11 +64,7 @@ describe("dialogue cuts follow phrasing within model duration limits", () => {
       expect(
         shots.map((s) => s.dialogue.map((t) => t.text).join("")).join(""),
       ).toBe(sentence);
-      expect(shots[0].text.trim()).toBe(
-        settings.model === VEO_MODEL
-          ? "El nuevo sistema mejora el agarre, mantiene el control del movimiento"
-          : "El nuevo sistema mejora el agarre,",
-      );
+      expect(shots[0].text.trim()).toBe("El nuevo sistema mejora el agarre,");
       expect(
         shots.every(
           (s) =>
@@ -102,12 +98,7 @@ describe("dialogue cuts follow phrasing within model duration limits", () => {
       fragments.map((t) => t.text),
     );
     expect(dialogueSeconds(fragments)).toBeCloseTo(
-      1.2 +
-        fragments.reduce(
-          (sum, t) =>
-            sum + Math.max(t.text.split(/\s+/).length / 2, t.text.length / 11),
-          0,
-        ),
+      dialogueSeconds([turn(fragments.map((t) => t.text).join(" "))]),
     );
   });
   it("uses sentence endings before an unfinished thought", () => {
@@ -165,6 +156,91 @@ describe("dialogue cuts follow phrasing within model duration limits", () => {
     expect(automatic.flatMap((s) => s.dialogue).map((t) => t.speaker)).toEqual(
       turns.map((t) => t.speaker),
     );
+  });
+});
+
+// Regression from exported story materials: a list of properties was split
+// after "profunda," and its tail was packed with the start of the next sentence.
+const weldingSentences = [
+  "¿Por qué el E6010 es clave para soldar tuberías?",
+  "Es un electrodo celulósico de penetración profunda, arco enérgico y escoria de rápida solidificación.",
+  "Trabaja principalmente con corriente continua, electrodo positivo (DCEP), y permite soldar en todas las posiciones.",
+];
+describe("whole ideas are protected, not merely preferred", () => {
+  it.each(["auto", "shared", "alternating"] as const)(
+    "keeps each complete technical sentence in one take (%s), regardless of metadata fragmentation",
+    (shotMode) => {
+      const script = weldingSentences.join("\n");
+      for (const fragments of [
+        [script],
+        weldingSentences,
+        script.split(/(?<=,) /u),
+        script.split(/ /u),
+      ]) {
+        const turns = fragments.map((text, i) => ({
+          ...turn(text),
+          id: `unit-${i}`,
+        }));
+        const input = { ...block(turns), shotMode };
+        const original = structuredClone(input);
+        const shots = planDialogueShots(config, input);
+        expect(shots.map((s) => s.text.replace(/\s+/gu, " ").trim())).toEqual(
+          weldingSentences,
+        );
+        expect(input).toEqual(original);
+        expect(shots.every((s) => s.duration <= 10)).toBe(true);
+        expect(
+          shots
+            .flatMap((s) => s.dialogue)
+            .every(
+              (t) =>
+                t.speaker === "Miguel" && t.action === "Muestra el objeto.",
+            ),
+        ).toBe(true);
+      }
+    },
+  );
+  it.each([DEFAULT_VIDEO, { ...DEFAULT_VIDEO, model: VEO_MODEL }])(
+    "isolates an overlong idea from neighbouring sentences without exceeding $model limits",
+    (settings) => {
+      const long =
+        "Este mecanismo permite sujetar la pieza, comprobar el ángulo, mantener la posición, reducir las vibraciones, controlar el movimiento y terminar el trabajo sin desplazar el conjunto.";
+      const before = "Primero observa la mesa.",
+        after = "Después revisamos el resultado.";
+      const text = `${before} ${long} ${after}`;
+      const shots = planDialogueShots(
+        { ...config, settings },
+        block([turn(text)]),
+      );
+      expect(shots[0].text.trim()).toBe(before);
+      expect(shots.at(-1)!.text.trim()).toBe(after);
+      expect(
+        shots
+          .slice(1, -1)
+          .map((s) => s.text)
+          .join("")
+          .trim(),
+      ).toBe(long);
+      expect(
+        shots.every(
+          (s) =>
+            dialogueSeconds(s.dialogue) <=
+            (settings.model === VEO_MODEL ? 8 : 10),
+        ),
+      ).toBe(true);
+      expect(shots.map((s) => s.text).join("")).toBe(text);
+    },
+  );
+  it("still groups complete brief ideas and ignores formatting in the speech estimate", () => {
+    const source = "La pieza está lista. Ahora podemos continuar.";
+    const shots = planDialogueShots(config, block([turn(source)]));
+    expect(shots).toHaveLength(1);
+    expect(shots[0].text).toBe(source);
+    expect(
+      dialogueSeconds([
+        turn("  La pieza\n\n está lista.   Ahora podemos continuar.  "),
+      ]),
+    ).toBe(dialogueSeconds([turn(source)]));
   });
 });
 

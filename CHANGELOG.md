@@ -50,6 +50,8 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 
 ### Corregido
 
+- Las frases habladas que caben en un clip son indivisibles, incluidas enumeraciones separadas por comas. La estimación ya no penaliza en exceso palabras técnicas largas ni fragmentos internos del mismo hablante. Una frase que excede la duración se reparte sin mezclar su final con otra idea; se añaden regresiones con el caso del electrodo E6010.
+
 - El reparto de diálogo en tomas prioriza frases y cláusulas completas, evita colas de pocas palabras y no cuenta los fragmentos consecutivos del mismo hablante como pausas o cambios de turno. Repara divisiones automáticas de una misma frase entre escenas compatibles, sin modificar el guion ni los vídeos existentes.
 
 - La propuesta ya no se detiene si Gemini nombra un lugar sin crear su referencia: vincula nombres equivalentes o prepara una ficha editable del escenario a partir de la descripción visual. Reutiliza referencias e imágenes entre lotes, conserva el guion y respeta la opción de generar imágenes.

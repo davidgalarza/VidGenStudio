@@ -170,12 +170,11 @@ function StorySceneCard({
       return false;
     setSaving(true);
     try {
-      const spokenSeconds = turns
-        ? dialogueSeconds(turns)
-        : Math.max(
-            dialogue.trim().split(/\s+/).length / 2,
-            dialogue.length / 11,
-          ) + 1.5;
+      const spokenSeconds = dialogueSeconds(
+        turns || [
+          { id: scene.id, speaker: scene.story?.speaker || "", text: dialogue },
+        ],
+      );
       if (
         !reviewed &&
         config.mode === "spoken" &&

@@ -55,7 +55,9 @@ Cada intervención tiene un personaje, sus palabras, una interpretación opciona
 - **Plano compartido:** pide mantener juntos a los personajes y agrupa el diálogo mientras lo permita la duración. Una escena larga sigue necesitando varios clips.
 - **Alternar:** cada toma contiene un solo hablante; las intervenciones largas se reparten entre las tomas necesarias.
 
-El reparto prioriza frases completas, pausas y cláusulas; evita separar una preposición de lo que sigue o dejar un final de dos o tres palabras aislado. Si el diálogo cabe entero, permanece en una toma. Cuando supera el máximo del modelo, busca cortes naturales y reparte el texto entre las tomas necesarias, sin reescribirlo ni acelerar la voz para forzarlo. La duración sigue siendo estimada: el resultado hablado necesita revisión.
+El reparto mantiene indivisible cada frase que cabe en la duración estimada del modelo, incluso si tiene comas, enumeraciones o varias indicaciones de actuación del mismo hablante. Puede agrupar frases breves completas. Una coma no obliga a cambiar de toma: por ejemplo, «Es un electrodo celulósico de penetración profunda, arco enérgico y escoria de rápida solidificación» se mantiene en una toma de Omni.
+
+Si una frase supera el máximo del modelo, busca pausas y cláusulas para repartirla, evitando finales de dos o tres palabras aislados. Sus fragmentos ocupan tomas propias: no mezcla el final de esa frase con el comienzo de otra idea. Conserva las palabras y su orden; no las resume. La estimación utiliza palabras y longitud del habla, sin contar espacios extra ni fragmentos internos como pausas. Sigue siendo una estimación, no una medición del audio: el resultado hablado necesita revisión.
 
 La lista de **Tomas previstas** muestra el reparto del texto y la duración estimada antes de producir. Cambiar estas opciones recalcula el plan localmente, sin generar vídeo. La aplicación conserva las palabras y su orden al repartirlas; el resultado del modelo puede apartarse del plan y necesita revisión.
 
