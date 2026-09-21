@@ -50,6 +50,8 @@ Cambios del fork Vidgen Studio posteriores a la versión heredada. No representa
 
 ### Corregido
 
+- El reparto de diálogo en tomas prioriza frases y cláusulas completas, evita colas de pocas palabras y no cuenta los fragmentos consecutivos del mismo hablante como pausas o cambios de turno. Repara divisiones automáticas de una misma frase entre escenas compatibles, sin modificar el guion ni los vídeos existentes.
+
 - La propuesta ya no se detiene si Gemini nombra un lugar sin crear su referencia: vincula nombres equivalentes o prepara una ficha editable del escenario a partir de la descripción visual. Reutiliza referencias e imágenes entre lotes, conserva el guion y respeta la opción de generar imágenes.
 
 - Los ajustes de estilo pendientes se pueden retomar después de cerrar el modal o alternar Escenas y Voz y estilo. Cancelar los descarta y Usar los aplica; el aviso aclara que recargar o salir de la vista pierde ese borrador en memoria.

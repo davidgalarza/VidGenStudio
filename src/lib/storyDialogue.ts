@@ -4,6 +4,7 @@ import type {
   StoryConfig,
   StoryShotMode,
 } from "../types";
+import { spokenBoundaryCost, endsSpokenSentence } from "./dialoguePhrasing";
 import { cleanCharacterName, findStoryCharacter } from "./storyCast";
 
 /** Strip only labels identifying a known speaker; never remove spoken words. */
@@ -95,7 +96,7 @@ export const dialogueSeconds = (turns: DialogueTurn[]) =>
         t.text.trim().split(/\s+/).filter(Boolean).length / 2,
         t.text.length / 11,
       ) +
-      (i ? 0.4 : 0),
+      (i && turns[i - 1].speaker !== t.speaker ? 0.4 : 0),
     0,
   );
 export interface DialogueShot {
@@ -115,45 +116,103 @@ export function planDialogueShots(
   const turns = blockDialogue(config, block);
   if (!turns.length)
     throw new Error("Añade lo que se escuchará en esta escena.");
-  const chunks: DialogueTurn[] = [];
-  for (const turn of turns) {
+  const tokens: { text: string; turn: number }[] = [];
+  const turnFits = turns.map((turn, index) => {
+    const previous = turns[index - 1],
+      next = turns[index + 1];
+    const continuation =
+      (previous?.speaker === turn.speaker &&
+        !endsSpokenSentence(previous.text)) ||
+      (next?.speaker === turn.speaker && !endsSpokenSentence(turn.text));
+    return !continuation && dialogueSeconds([turn]) <= max;
+  });
+  for (const [index, turn] of turns.entries()) {
     if (!turn.text.trim())
       throw new Error("Completa el texto de cada intervención.");
     if (!findStoryCharacter(config.characters, turn.speaker))
       throw new Error(
         `Elige el personaje de la intervención de «${turn.speaker || "Sin asignar"}».`,
       );
-    let part = "";
-    // Preserve even whitespace within a turn while splitting long monologues.
-    for (const token of turn.text.match(/\S+\s*|\s+/g) || []) {
-      if (part && dialogueSeconds([{ ...turn, text: part + token }]) > max) {
-        chunks.push({ ...turn, id: `${turn.id}-${chunks.length}`, text: part });
-        part = "";
-      }
-      if (dialogueSeconds([{ ...turn, text: token }]) > max)
+    for (const text of turn.text.match(/\s*\S+\s*/gu) || []) {
+      if (dialogueSeconds([{ ...turn, text }]) > max)
         throw new Error(
           "Una palabra es demasiado larga para una toma. Revisa el texto de la intervención.",
         );
-      part += token;
+      tokens.push({ text, turn: index });
     }
-    if (part)
-      chunks.push({ ...turn, id: `${turn.id}-${chunks.length}`, text: part });
+  }
+  // Optimize the whole passage instead of filling a clip and stranding its last words.
+  // Lookahead is bounded by the model's duration, so long scripts remain linear in practice.
+  const costs = new Array<number>(tokens.length + 1).fill(Infinity);
+  const ends = new Array<number>(tokens.length);
+  costs[tokens.length] = 0;
+  for (let start = tokens.length - 1; start >= 0; start--) {
+    const dialogue: DialogueTurn[] = [];
+    let speakerChanges = 0;
+    const speakers = new Set<string>();
+    for (let end = start; end < tokens.length; end++) {
+      const token = tokens[end];
+      const source = turns[token.turn];
+      const previous = dialogue.at(-1);
+      if (previous && tokens[end - 1].turn === token.turn)
+        previous.text += token.text;
+      else {
+        if (previous && previous.speaker !== source.speaker) speakerChanges++;
+        dialogue.push({ ...source, text: token.text });
+      }
+      speakers.add(source.speaker);
+      const duration = dialogueSeconds(dialogue);
+      if (
+        duration > max ||
+        (mode === "alternating" && speakers.size > 1) ||
+        (mode === "auto" && (speakers.size > 2 || speakerChanges > 2))
+      )
+        break;
+      const next = tokens[end + 1];
+      const sameSpeaker = next && source.speaker === turns[next.turn].speaker;
+      let boundary = sameSpeaker
+        ? spokenBoundaryCost(token.text, next.text)
+        : 0;
+      // An utterance that fits by itself should not be chopped just to fill another clip.
+      if (next?.turn === token.turn && turnFits[token.turn]) boundary += 250;
+      const continued =
+        start > 0 &&
+        turns[tokens[start - 1].turn].speaker ===
+          turns[tokens[start].turn].speaker &&
+        !endsSpokenSentence(tokens[start - 1].text);
+      const tinyFragment =
+        end - start + 1 < 4 &&
+        (continued || (sameSpeaker && !endsSpokenSentence(token.text)));
+      const cost =
+        100 +
+        boundary +
+        (tinyFragment ? 180 : 0) +
+        12 * ((max - duration) / max) ** 2 +
+        costs[end + 1];
+      if (cost < costs[start]) {
+        costs[start] = cost;
+        ends[start] = end + 1;
+      }
+    }
   }
   const groups: DialogueTurn[][] = [];
-  for (const turn of chunks) {
-    const previous = groups.at(-1);
-    const speakers = new Set([
-      ...(previous || []).map((t) => t.speaker),
-      turn.speaker,
-    ]);
-    if (
-      previous &&
-      dialogueSeconds([...previous, turn]) <= max &&
-      (mode !== "alternating" || speakers.size === 1) &&
-      (mode !== "auto" || (speakers.size <= 2 && previous.length < 3))
-    )
-      previous.push(turn);
-    else groups.push([turn]);
+  for (let start = 0; start < tokens.length;) {
+    const end = ends[start];
+    const dialogue: DialogueTurn[] = [];
+    for (let i = start; i < end; i++) {
+      const token = tokens[i];
+      const previous = dialogue.at(-1);
+      if (previous && tokens[i - 1].turn === token.turn)
+        previous.text += token.text;
+      else
+        dialogue.push({
+          ...turns[token.turn],
+          id: `${turns[token.turn].id}-${i}`,
+          text: token.text,
+        });
+    }
+    groups.push(dialogue);
+    start = end;
   }
   return groups.map((dialogue) => ({
     dialogue,

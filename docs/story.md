@@ -51,9 +51,11 @@ Cada intervención tiene un personaje, sus palabras, una interpretación opciona
 
 **Cómo se filma** ofrece tres opciones:
 
-- **Automático:** agrupa intercambios breves cuando caben; limita cada toma a dos hablantes y tres intervenciones como máximo.
+- **Automático:** agrupa intercambios breves cuando caben; limita cada toma a dos hablantes y tres turnos de palabra como máximo. Varios fragmentos consecutivos del mismo personaje cuentan como un solo turno de palabra.
 - **Plano compartido:** pide mantener juntos a los personajes y agrupa el diálogo mientras lo permita la duración. Una escena larga sigue necesitando varios clips.
 - **Alternar:** cada toma contiene un solo hablante; las intervenciones largas se reparten entre las tomas necesarias.
+
+El reparto prioriza frases completas, pausas y cláusulas; evita separar una preposición de lo que sigue o dejar un final de dos o tres palabras aislado. Si el diálogo cabe entero, permanece en una toma. Cuando supera el máximo del modelo, busca cortes naturales y reparte el texto entre las tomas necesarias, sin reescribirlo ni acelerar la voz para forzarlo. La duración sigue siendo estimada: el resultado hablado necesita revisión.
 
 La lista de **Tomas previstas** muestra el reparto del texto y la duración estimada antes de producir. Cambiar estas opciones recalcula el plan localmente, sin generar vídeo. La aplicación conserva las palabras y su orden al repartirlas; el resultado del modelo puede apartarse del plan y necesita revisión.
 
@@ -68,6 +70,8 @@ La revisión no modifica ni regenera nada automáticamente. Puedes cerrar, escuc
 ## Planificación y referencias
 
 El planificador recibe fragmentos numerados y devuelve rangos consecutivos para las escenas y sus intervenciones, títulos, acciones visuales y una configuración. El código reconstruye las palabras desde el texto original y rechaza rangos con omisiones, duplicaciones, cambios de orden o hablantes incoherentes. Procesa guiones largos por lotes y guarda el avance; nuevos personajes pueden aparecer en lotes posteriores. No hay un límite fijo de duración total impuesto por la interfaz; siguen aplicando las cuotas de la cuenta, el almacenamiento y el número de solicitudes.
+
+Los fragmentos numerados del planificador son unidades de trabajo, no cortes de vídeo. Si una propuesta automática parte una frase del mismo hablante entre dos escenas del mismo lugar, el código las une cuando se trata de una continuación inequívoca. Conserva cambios de lugar, de hablante, de párrafo o de modo de plano, y no une escenas que ya tengan vídeos. Las tomas existentes no se regeneran automáticamente.
 
 Nano Banana crea referencias compartidas de personajes, escenarios, objetos o estilo. Los escenarios representan el lugar vacío: arquitectura, luz, mobiliario y posiciones estables, sin personas ni etiquetas. La misma referencia puede acompañar varias escenas y tomas; no se genera otro escenario por cambiar la cámara. Puedes añadir un **Escenario o lugar**, editar su descripción, regenerar una imagen, elegir una existente o subir una propia con el selector.
 

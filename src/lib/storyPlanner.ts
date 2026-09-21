@@ -17,6 +17,7 @@ import { splitText, storyStyles } from "./story";
 import { geminiVoices, validVoice } from "./geminiSpeech";
 import { storyJSON } from "./google";
 import { reconcileStoryLocations } from "./storyLocations";
+import { joinUnfinishedDialogue } from "./dialoguePhrasing";
 import { parseDialogueSource } from "./storyDialogue";
 import { storyStylePrompt, validStyleProfile } from "./storyStyles";
 
@@ -349,11 +350,18 @@ export function applyProposalBatch(
       continue;
     }
     const text = pendingHeadings + block.text;
-    joinedBlocks.push({
+    const next = {
       ...block,
       text,
       ...(mode === "spoken" ? { dialogueSource: text } : {}),
-    });
+    };
+    const previous = joinedBlocks.at(-1);
+    const joined =
+      mode === "spoken" && previous
+        ? joinUnfinishedDialogue(previous, next)
+        : undefined;
+    if (joined) joinedBlocks[joinedBlocks.length - 1] = joined;
+    else joinedBlocks.push(next);
     pendingHeadings = "";
   }
   if (pendingHeadings) {
@@ -426,6 +434,7 @@ export async function proposeNextBatch(key: string, story: Story) {
     "Infer a useful visual style, narrative mode, coherent art direction, recurring characters only if needed, and a fitting narrator voice. For explanatory scripts prefer concrete demonstrations and progressive diagrams instead of talking characters or generic footage. For labelled dialogue identify all speakers and consistent appearance/voice descriptions. Every scene speaker must use the exact name of a character in the cast, including narrators who appear speaking in the video. Never use a role, nickname or generic narrator label in place of that name. Do not add fictional people to an infographic unless helpful. References should be reusable model sheets for recurring characters, locations, objects or the visual style; propose at most 4 normally, never one per shot. Reference prompts must be complete Nano Banana image descriptions with a single clear view, no labels or lettering. characterName links a CHARACTER reference to an exact character name, otherwise use an empty string. Each scene's visual specifies subject, action, framing, and educational purpose when appropriate. Each scene referenceNames selects up to 3 exact names from existing or newly proposed references appropriate to its subject. Do not attach unrelated characters or objects.",
     "For EVERY nonempty scene.locationName, provide or reuse ONE establishing image reference with exactly that locationName; do not omit its reference even if the place appears only once. For each recurring physical location, create ONE reusable establishing image reference (type PRODUCT, locationName set, characterName empty). Its name, architecture, light, furniture and spatial positions should be specific and stable. The image depicts the empty set, without people or labels. Set scene.locationName to that exact locationName, or empty if the visuals have no physical set. Include that reference in referenceNames when appropriate. Reuse existing locations across batches, never create variants merely for a camera change. Style references use empty locationName. Select only the scene's participants for character references, and reserve room for the set within the three-reference limit. For shared dialogue speaker may be the first turn's speaker; turns are authoritative. When the user explicitly chooses spoken mode, never change it to voiceover, even for an unlabelled monologue.",
     "Each spoken turn has action: concise visual blocking while that turn is spoken, including the speaker's gestures and listeners' silent reactions. Coordinate sequential actions without replaying earlier beats. These actions are inferred direction, never additional speech. Empty for voiceover turns.",
+    "SCRIPT_UNITS are arbitrary addressing chunks, not sentences, scenes or video shots. A unit boundary or batch boundary can be in the middle of a sentence. Never create a new scene or turn just because a unit ends. Keep a speaker's complete sentence or coherent clause together in the same scene; do not strand short endings such as 'todas las posiciones'. Video duration is handled afterwards by the local shot planner. Change scenes for a genuine setting or narrative change, not to satisfy a video time limit.",
     "A speaker name on its own line (for example Ana: followed by a newline) is a heading, not an utterance or a scene. Include its unit with the following spoken words in the same turn and scene. Never create a separate turn or scene for a name alone. A heading changes the speaker of all following unlabelled units, including across batches, until another heading appears.",
     `User preferences (obey when specified): ${JSON.stringify({ mode: plan.mode, style: plan.style, direction: story.direction })}`,
     `Selected visual treatment: ${storyStylePrompt(story)}. Apply it to every scene's visual staging and every reference image prompt. A scene's visual description must respect these settings. Do not override the user's selected style.`,
